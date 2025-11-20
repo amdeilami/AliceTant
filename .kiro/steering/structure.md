@@ -22,7 +22,6 @@ The frontend directory contains the following directories:
     - `main.jsx`: App entry point, renders ```<App />```
 - `package.json`: contains the package.json file for the frontend application
 - `vite.config.js`: contains the Vite configuration file for the frontend application
-- `tailwind.config.js`: contains the Tailwind configuration file for the frontend application
 
 # Backend directory:
 
