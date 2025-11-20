@@ -21,12 +21,12 @@ python manage.py migrate
 
 ## Running the Server
 
-Start the development server on port 8000:
+Start the development server on port 5174:
 ```bash
 python manage.py runserver
 ```
 
-The API will be available at: http://localhost:8000/api/
+The API will be available at: http://localhost:5174/api/
 
 ## API Endpoints
 
