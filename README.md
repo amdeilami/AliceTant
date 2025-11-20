@@ -9,7 +9,7 @@ cd backend
 source .venv/bin/activate
 python manage.py runserver
 ```
-Backend runs on: http://localhost:8000
+Backend runs on: http://localhost:5174
 
 ### Frontend (React)
 ```bash
