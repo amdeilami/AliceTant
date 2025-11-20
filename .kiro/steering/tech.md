@@ -50,5 +50,5 @@ The system is designed with **strong consistency** as the primary concern, ensur
     - Booking and cancelling appointments
 
 ## 4. Testing
-- **Jest + React Testing Library** for frontend unit/integration tests
+- **Vitest + React Testing Library** for frontend unit/integration tests
 - **Django Test Framework / pytest** for backend unit/integration tests

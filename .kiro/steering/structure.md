@@ -10,14 +10,19 @@ After you create the the fontend project using "React+Vite" and backend project 
 
 The frontend directory contains the following directories:
 
-- `components`: contains the components of the application
-- `pages`: contains the pages of the application
-- `styles`: contains the styles of the application
-- `utils`: contains the utils of the application
-- `app`: contains the main application code
-- `public`: contains the public files of the application
+- `public`: contains the static assets of the application that do not require to go through Vite processing.
+- `src`: contains the source code of the front application and in includes the following directories and files:
+    - `assets`: contains the assets of the application, like images, fonts, etc that can be imported in the application using a relative path.
+    - `components`: contains the re-usable components of the application, if you are creating a new component like a button, navigation bar, header, footer, etc. make sure to put it in the components page so you can use it again.
+    - `pages`: contains the pages of the application in .jsx files.
+    - `utils`: contains the shared logic like helper functions, API wrappers.
+    - `App.jsx`: Root app component; contains layout + router.
+    - `App.css`: Styles for the `App` component.
+    - `index.css`: Global CSS + Tailwind base utilities
+    - `main.jsx`: App entry point, renders ```<App />```
 - `package.json`: contains the package.json file for the frontend application
-- `yarn.lock`: contains the yarn.lock file for the frontend application
+- `vite.config.js`: contains the Vite configuration file for the frontend application
+- `tailwind.config.js`: contains the Tailwind configuration file for the frontend application
 
 # Backend directory:
 
