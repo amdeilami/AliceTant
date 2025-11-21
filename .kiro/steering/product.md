@@ -14,7 +14,7 @@ Provider: the business owner who defines availability and manages appointment sl
 
 Customer: a client who views available time slots and books appointments.
 
-The system prioritizes strong data consistency—ensuring that no time slot can be double-booked—over raw performance. It is intended for small-scale usage (up to 10,000 customers and up to 5 providers).
+The system prioritizes strong data consistency—ensuring that no time slot can be double-booked—over raw performance. It is intended for small-scale usage (up to 10,000 customers for each provider).
 
 ## Features
 

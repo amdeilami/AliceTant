@@ -125,6 +125,10 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Custom User Model
+# Must be set before creating any migrations
+AUTH_USER_MODEL = 'AliceTant.User'
+
 # CORS settings for frontend
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
