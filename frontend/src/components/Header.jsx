@@ -47,7 +47,7 @@ function Header() {
                             Login
                         </Link>
                         <Link
-                            to="/register"
+                            to="/signup"
                             className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
                         >
                             Sign Up

@@ -3,11 +3,13 @@
  * Displays the landing page with hero section and backend status.
  */
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../utils/api';
 
 function Home() {
     const [status, setStatus] = useState('Checking...');
+    const navigate = useNavigate();
 
     useEffect(() => {
         api.get('/health/')
@@ -32,7 +34,10 @@ function Home() {
                         Your personal booking assistant for seamless appointment scheduling
                     </p>
                     <div className="flex justify-center gap-4">
-                        <button className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg font-semibold transition-colors">
+                        <button
+                            onClick={() => navigate('/signup')}
+                            className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg font-semibold transition-colors"
+                        >
                             Get Started
                         </button>
                         <button className="bg-indigo-700 text-white hover:bg-indigo-800 px-8 py-3 rounded-lg font-semibold transition-colors">
