@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Backend Test Updater",
+  "description": "Monitors changes to files in backend/AliceTant/services, backend/AliceTant/models, and backend/AliceTant/repositories directories. When a file is edited, it looks for the corresponding test file in backend/AliceTant/tests. If tests exist, it updates them to reflect the changes. If no tests exist for new features or models, it creates a few focused tests (not exhaustive) in the tests directory.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "backend/AliceTant/services/**",
+      "backend/AliceTant/models/**",
+      "backend/AliceTant/repositories/**"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file has been changed in the backend AliceTant application. The changed file is: {{filePath}}\n\nPlease analyze the changes and:\n1. Look for corresponding test files in backend/AliceTant/tests/\n2. If tests exist for this module, update them to reflect the changes made\n3. If no tests exist (e.g., new feature or model), create a few focused, essential tests - DO NOT write exhaustive tests for every detail, just 1-3 key tests\n4. Place any new test files in backend/AliceTant/tests/ following the naming convention test_[module_name]_unit.py or test_[module_name]_properties.py\n5. Keep tests concise and focused on the most important functionality\n\nRemember: We want minimal, targeted test coverage - not comprehensive testing of every edge case."
+  }
+}

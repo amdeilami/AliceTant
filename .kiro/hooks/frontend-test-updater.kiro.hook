@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Frontend Test Updater",
+  "description": "Monitors changes to frontend source files (pages, components, utils) and automatically updates or creates corresponding tests. Focuses on writing a few reasonable tests for key functionality without over-testing every detail.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "frontend/src/pages/*.jsx",
+      "frontend/src/pages/*.js",
+      "frontend/src/components/*.jsx",
+      "frontend/src/components/*.js",
+      "frontend/src/utils/*.js",
+      "frontend/src/utils/*.jsx"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A frontend file has been modified. Review the changes and:\n\n1. Identify what functionality changed or was added (new page, component update, utility function change, etc.)\n2. Determine if corresponding tests exist in the appropriate test directory\n3. If tests exist, update them to reflect the changes\n4. If no tests exist, create a few reasonable tests that cover the main functionality\n5. Focus on testing key user interactions, component rendering, and critical logic - DO NOT write exhaustive tests for every edge case\n6. Use Vitest and React Testing Library as specified in the tech stack\n7. Place tests in a `__tests__` directory adjacent to the source file or in a `tests` directory at the appropriate level\n\nKeep tests simple, focused, and maintainable. We want quality over quantity."
+  }
+}
