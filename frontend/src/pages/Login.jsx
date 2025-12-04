@@ -7,12 +7,16 @@
  * - Client-side validation with error display
  * - OAuth login options (Google and Facebook)
  * - Navigation to signup page
+ * - Backend API integration for authentication
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { login } from '../utils/api';
 
 function Login() {
+    const navigate = useNavigate();
+
     // Form state management
     const [formData, setFormData] = useState({
         email: '',
@@ -101,10 +105,11 @@ function Login() {
 
     /**
      * Handles form submission.
+     * Authenticates user with backend API and handles various response scenarios.
      * 
      * @param {Event} e - Form submit event
      */
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!validateForm()) {
@@ -113,19 +118,62 @@ function Login() {
 
         setIsSubmitting(true);
 
-        // Prepare data for future backend integration
-        const submitData = {
-            email: formData.email,
-            password: formData.password
-        };
+        // Clear any previous general errors
+        setErrors(prev => ({
+            ...prev,
+            general: undefined
+        }));
 
-        console.log('Login form submitted:', submitData);
+        try {
+            // Call backend login API
+            const response = await login({
+                email: formData.email,
+                password: formData.password
+            });
 
-        // TODO: Replace with actual API call when backend is ready
-        // api.post('/auth/login/', submitData)
+            // Handle 200 success response
+            // Store token and user data in localStorage
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('userData', JSON.stringify(response.user));
 
-        setIsSubmitting(false);
-        alert('Login successful! (Backend integration pending)');
+            // Redirect to home page (or dashboard in the future)
+            navigate('/');
+        } catch (error) {
+            // Handle different error scenarios
+            if (error.response) {
+                const status = error.response.status;
+                const errorData = error.response.data;
+
+                if (status === 401) {
+                    // Handle 401 unauthorized error (invalid credentials)
+                    setErrors({
+                        general: errorData.error || 'Invalid email or password. Please try again.'
+                    });
+                } else if (status === 400) {
+                    // Handle 400 validation error
+                    setErrors({
+                        general: errorData.error || 'Please check your input and try again.'
+                    });
+                } else {
+                    // Handle other server errors
+                    setErrors({
+                        general: 'An unexpected error occurred. Please try again later.'
+                    });
+                }
+            } else if (error.request) {
+                // Handle network errors (no response received)
+                setErrors({
+                    general: 'Unable to connect to the server. Please check your internet connection and try again.'
+                });
+            } else {
+                // Handle other errors
+                setErrors({
+                    general: 'Something went wrong. Please try again.'
+                });
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     /**
@@ -163,6 +211,13 @@ function Login() {
                                     `Form has ${Object.keys(errors).length} error${Object.keys(errors).length > 1 ? 's' : ''}`
                                 )}
                             </div>
+
+                            {/* General Error Message */}
+                            {errors.general && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg" role="alert">
+                                    <p className="text-sm">{errors.general}</p>
+                                </div>
+                            )}
 
                             {/* Email Field */}
                             <div>

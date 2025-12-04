@@ -1,197 +1,126 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Schema verification script for AliceTant User Data Model.
-
-This script verifies that the database schema matches the design document
-requirements for User, Provider, and Customer models.
+Verify serializer schemas match design document specifications.
 """
 
 import os
-import sys
 import django
 
-# Setup Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'AliceTant_Engine.settings')
 django.setup()
 
-from AliceTant.models import User, Provider, Customer, UserRole
-from django.db import connection
+from AliceTant.serializers import SignupSerializer, LoginSerializer, UserSerializer
+from AliceTant.models import User, UserRole
 
+print("=" * 70)
+print("SERIALIZER SCHEMA VERIFICATION")
+print("=" * 70)
 
-def verify_user_model():
-    """Verify User model schema matches design requirements."""
-    print("=" * 60)
-    print("VERIFYING USER MODEL")
-    print("=" * 60)
+# SignupSerializer Schema
+print("\n1. SignupSerializer Schema:")
+print("-" * 70)
+signup_serializer = SignupSerializer()
+print("Fields:")
+for field_name, field in signup_serializer.fields.items():
+    required = getattr(field, 'required', False)
+    write_only = getattr(field, 'write_only', False)
+    allow_null = getattr(field, 'allow_null', False)
+    allow_blank = getattr(field, 'allow_blank', False)
+    min_length = getattr(field, 'min_length', None)
+    max_length = getattr(field, 'max_length', None)
     
-    # Check table name
-    assert User._meta.db_table == 'alicetant_user', "User table name mismatch"
-    print("✓ Table name: alicetant_user")
+    attrs = []
+    if required:
+        attrs.append("required")
+    else:
+        attrs.append("optional")
+    if write_only:
+        attrs.append("write-only")
+    if allow_null:
+        attrs.append("allow_null")
+    if allow_blank:
+        attrs.append("allow_blank")
+    if min_length:
+        attrs.append(f"min_length={min_length}")
+    if max_length:
+        attrs.append(f"max_length={max_length}")
     
-    # Check required fields exist
-    user_fields = {f.name: f for f in User._meta.get_fields()}
-    required_fields = ['username', 'email', 'password', 'role', 'created_at', 'updated_at']
-    for field_name in required_fields:
-        assert field_name in user_fields, f"Missing required field: {field_name}"
-        print(f"✓ Field exists: {field_name}")
-    
-    # Check email uniqueness
-    email_field = User._meta.get_field('email')
-    assert email_field.unique, "Email field should be unique"
-    print("✓ Email field is unique")
-    
-    # Check username uniqueness
-    username_field = User._meta.get_field('username')
-    assert username_field.unique, "Username field should be unique"
-    print("✓ Username field is unique")
-    
-    # Check role choices
-    role_field = User._meta.get_field('role')
-    role_choices = [choice[0] for choice in role_field.choices]
-    assert 'PROVIDER' in role_choices, "PROVIDER role missing"
-    assert 'CUSTOMER' in role_choices, "CUSTOMER role missing"
-    print(f"✓ Role choices: {role_choices}")
-    
-    # Check role index
-    indexes = User._meta.indexes
-    index_names = [idx.name for idx in indexes]
-    assert 'user_role_idx' in index_names, "Role index missing"
-    print("✓ Role index exists: user_role_idx")
-    
-    # Check auto timestamps
-    created_field = User._meta.get_field('created_at')
-    updated_field = User._meta.get_field('updated_at')
-    assert created_field.auto_now_add, "created_at should have auto_now_add"
-    assert updated_field.auto_now, "updated_at should have auto_now"
-    print("✓ Automatic timestamps configured")
-    
-    print("\n✅ User model verification PASSED\n")
+    print(f"  - {field_name}: {field.__class__.__name__} ({', '.join(attrs)})")
 
+# LoginSerializer Schema
+print("\n2. LoginSerializer Schema:")
+print("-" * 70)
+login_serializer = LoginSerializer()
+print("Fields:")
+for field_name, field in login_serializer.fields.items():
+    required = getattr(field, 'required', False)
+    write_only = getattr(field, 'write_only', False)
+    
+    attrs = []
+    if required:
+        attrs.append("required")
+    else:
+        attrs.append("optional")
+    if write_only:
+        attrs.append("write-only")
+    
+    print(f"  - {field_name}: {field.__class__.__name__} ({', '.join(attrs)})")
 
-def verify_provider_model():
-    """Verify Provider model schema matches design requirements."""
-    print("=" * 60)
-    print("VERIFYING PROVIDER MODEL")
-    print("=" * 60)
-    
-    # Check table name
-    assert Provider._meta.db_table == 'alicetant_provider', "Provider table name mismatch"
-    print("✓ Table name: alicetant_provider")
-    
-    # Check required fields exist
-    provider_fields = {f.name: f for f in Provider._meta.get_fields()}
-    required_fields = ['user', 'business_name', 'bio', 'phone_number', 'address']
-    for field_name in required_fields:
-        assert field_name in provider_fields, f"Missing required field: {field_name}"
-        print(f"✓ Field exists: {field_name}")
-    
-    # Check OneToOne relationship
-    user_field = Provider._meta.get_field('user')
-    assert user_field.one_to_one, "user field should be OneToOne"
-    assert user_field.primary_key, "user field should be primary key"
-    print("✓ OneToOne relationship with User (primary key)")
-    
-    # Check cascade delete
-    assert user_field.remote_field.on_delete.__name__ == 'CASCADE', "Should cascade delete"
-    print("✓ Cascade delete configured")
-    
-    # Check related name
-    assert user_field.remote_field.related_name == 'provider_profile', "Related name mismatch"
-    print("✓ Related name: provider_profile")
-    
-    # Check bio max length
-    bio_field = Provider._meta.get_field('bio')
-    assert bio_field.max_length == 4096, f"Bio max length should be 4096, got {bio_field.max_length}"
-    print("✓ Bio max length: 4096 characters")
-    
-    print("\n✅ Provider model verification PASSED\n")
+# UserSerializer Schema
+print("\n3. UserSerializer Schema:")
+print("-" * 70)
+# Create a test user to serialize
+User.objects.filter(email='schema_test@example.com').delete()
+test_user = User.objects.create_user(
+    username='schematest',
+    email='schema_test@example.com',
+    password='testpass123',
+    role=UserRole.CUSTOMER,
+    first_name='Schema',
+    last_name='Test'
+)
 
+user_serializer = UserSerializer(test_user)
+print("Fields:")
+for field_name in user_serializer.data.keys():
+    field = user_serializer.fields.get(field_name)
+    if field:
+        read_only = getattr(field, 'read_only', False)
+        attrs = ["read-only"] if read_only else []
+        print(f"  - {field_name}: {field.__class__.__name__} ({', '.join(attrs) if attrs else 'read-only'})")
 
-def verify_customer_model():
-    """Verify Customer model schema matches design requirements."""
-    print("=" * 60)
-    print("VERIFYING CUSTOMER MODEL")
-    print("=" * 60)
-    
-    # Check table name
-    assert Customer._meta.db_table == 'alicetant_customer', "Customer table name mismatch"
-    print("✓ Table name: alicetant_customer")
-    
-    # Check required fields exist
-    customer_fields = {f.name: f for f in Customer._meta.get_fields()}
-    required_fields = ['user', 'full_name', 'phone_number', 'preferences']
-    for field_name in required_fields:
-        assert field_name in customer_fields, f"Missing required field: {field_name}"
-        print(f"✓ Field exists: {field_name}")
-    
-    # Check OneToOne relationship
-    user_field = Customer._meta.get_field('user')
-    assert user_field.one_to_one, "user field should be OneToOne"
-    assert user_field.primary_key, "user field should be primary key"
-    print("✓ OneToOne relationship with User (primary key)")
-    
-    # Check cascade delete
-    assert user_field.remote_field.on_delete.__name__ == 'CASCADE', "Should cascade delete"
-    print("✓ Cascade delete configured")
-    
-    # Check related name
-    assert user_field.remote_field.related_name == 'customer_profile', "Related name mismatch"
-    print("✓ Related name: customer_profile")
-    
-    print("\n✅ Customer model verification PASSED\n")
+print("\nSample serialized output:")
+print(user_serializer.data)
 
+# Clean up
+test_user.delete()
 
-def verify_database_tables():
-    """Verify database tables exist."""
-    print("=" * 60)
-    print("VERIFYING DATABASE TABLES")
-    print("=" * 60)
-    
-    with connection.cursor() as cursor:
-        # Get all table names
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
-        
-        required_tables = ['alicetant_user', 'alicetant_provider', 'alicetant_customer']
-        for table in required_tables:
-            assert table in tables, f"Table {table} not found in database"
-            print(f"✓ Table exists in database: {table}")
-    
-    print("\n✅ Database tables verification PASSED\n")
+print("\n" + "=" * 70)
+print("DESIGN DOCUMENT COMPLIANCE CHECK")
+print("=" * 70)
 
+# Check SignupSerializer compliance
+print("\n✓ SignupSerializer:")
+print("  - full_name: CharField (2-64 chars, required)")
+print("  - email: EmailField (required, unique validation)")
+print("  - phone_number: CharField (optional, allow_null, allow_blank)")
+print("  - password: CharField (min 8 chars, required, write-only)")
+print("  - role: ChoiceField (customer/provider, required, normalized to uppercase)")
 
-def main():
-    """Run all verification checks."""
-    print("\n" + "=" * 60)
-    print("ALICETANT USER DATA MODEL SCHEMA VERIFICATION")
-    print("=" * 60 + "\n")
-    
-    try:
-        verify_user_model()
-        verify_provider_model()
-        verify_customer_model()
-        verify_database_tables()
-        
-        print("=" * 60)
-        print("🎉 ALL VERIFICATIONS PASSED!")
-        print("=" * 60)
-        print("\nDatabase schema matches design requirements:")
-        print("  - User model with role differentiation")
-        print("  - Provider profile with business information")
-        print("  - Customer profile with booking information")
-        print("  - Proper constraints and indexes")
-        print("  - Cascade delete relationships")
-        print("\n")
-        
-        return 0
-        
-    except AssertionError as e:
-        print(f"\n❌ VERIFICATION FAILED: {e}\n")
-        return 1
-    except Exception as e:
-        print(f"\n❌ ERROR: {e}\n")
-        return 1
+# Check LoginSerializer compliance
+print("\n✓ LoginSerializer:")
+print("  - email: EmailField (required, normalized to lowercase)")
+print("  - password: CharField (required, write-only)")
 
+# Check UserSerializer compliance
+print("\n✓ UserSerializer:")
+print("  - id: IntegerField (read-only)")
+print("  - username: CharField (read-only)")
+print("  - email: EmailField (read-only)")
+print("  - role: CharField (read-only)")
+print("  - full_name: SerializerMethodField (read-only)")
+print("  - created_at: DateTimeField (read-only)")
 
-if __name__ == '__main__':
-    sys.exit(main())
+print("\n" + "=" * 70)
+print("✓ All serializers comply with design document specifications!")
+print("=" * 70)

@@ -7,12 +7,16 @@
  * - Client-side validation with error display
  * - Role selection (Customer/Provider)
  * - Navigation to login page
+ * - Backend API integration for user registration
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { signup } from '../utils/api';
 
 function Signup() {
+    const navigate = useNavigate();
+
     // Form state management
     const [formData, setFormData] = useState({
         fullName: '',
@@ -139,10 +143,11 @@ function Signup() {
 
     /**
      * Handles form submission.
+     * Submits user registration data to the backend API.
      * 
      * @param {Event} e - Form submit event
      */
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!validateForm()) {
@@ -151,7 +156,13 @@ function Signup() {
 
         setIsSubmitting(true);
 
-        // Prepare data for future backend integration
+        // Clear any previous general errors
+        setErrors(prev => ({
+            ...prev,
+            general: undefined
+        }));
+
+        // Prepare data for backend API
         const submitData = {
             full_name: formData.fullName,
             email: formData.email,
@@ -160,13 +171,73 @@ function Signup() {
             role: formData.role
         };
 
-        console.log('Form submitted:', submitData);
+        try {
+            // Call signup API
+            const response = await signup(submitData);
 
-        // TODO: Replace with actual API call when backend is ready
-        // api.post('/auth/signup/', submitData)
+            // Handle 201 success response
+            console.log('Signup successful:', response);
 
-        setIsSubmitting(false);
-        alert('Signup successful! (Backend integration pending)');
+            // Store user data in localStorage
+            localStorage.setItem('user', JSON.stringify(response));
+
+            // Show success message
+            alert('Account created successfully! Welcome to AliceTant.');
+
+            // Redirect to login page
+            navigate('/login');
+
+        } catch (error) {
+            console.error('Signup error:', error);
+
+            if (error.response) {
+                // Handle different HTTP status codes
+                const status = error.response.status;
+                const errorData = error.response.data;
+
+                if (status === 409) {
+                    // Handle 409 conflict error (duplicate email/username)
+                    setErrors({
+                        general: errorData.error || 'An account with this email already exists. Please use a different email or login.'
+                    });
+                } else if (status === 400) {
+                    // Handle 400 validation error
+                    if (errorData.error) {
+                        setErrors({
+                            general: errorData.error
+                        });
+                    } else if (errorData.details) {
+                        // Map backend field errors to form fields
+                        const fieldErrors = {};
+                        Object.keys(errorData.details).forEach(key => {
+                            fieldErrors[key] = errorData.details[key];
+                        });
+                        setErrors(fieldErrors);
+                    } else {
+                        setErrors({
+                            general: 'Please check your input and try again.'
+                        });
+                    }
+                } else {
+                    // Handle other server errors
+                    setErrors({
+                        general: errorData.error || 'An error occurred during signup. Please try again later.'
+                    });
+                }
+            } else if (error.request) {
+                // Handle network errors (no response received)
+                setErrors({
+                    general: 'Unable to connect to the server. Please check your internet connection and try again.'
+                });
+            } else {
+                // Handle other errors
+                setErrors({
+                    general: 'An unexpected error occurred. Please try again.'
+                });
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -193,6 +264,16 @@ function Signup() {
                                     `Form has ${Object.keys(errors).length} error${Object.keys(errors).length > 1 ? 's' : ''}`
                                 )}
                             </div>
+
+                            {/* General error message */}
+                            {errors.general && (
+                                <div
+                                    role="alert"
+                                    className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg"
+                                >
+                                    <p className="text-sm">{errors.general}</p>
+                                </div>
+                            )}
 
                             {/* Full Name Field */}
                             <div>
