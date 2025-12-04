@@ -8,9 +8,14 @@ appropriate JSON responses with proper status codes.
 """
 
 import logging
+import jwt
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 
 from ..serializers.auth_serializers import SignupSerializer, LoginSerializer, UserSerializer
 from ..services.auth_service import AuthService
@@ -18,9 +23,71 @@ from ..exceptions.user_exceptions import (
     DuplicateUserError,
     InvalidUserDataError
 )
+from ..models.user import User
 
 # Configure logger for authentication views
 logger = logging.getLogger(__name__)
+
+
+class JWTAuthentication(BaseAuthentication):
+    """
+    Custom JWT authentication class for REST API.
+    
+    Authenticates requests using JWT tokens in the Authorization header.
+    Expected format: "Bearer <token>"
+    """
+    
+    def authenticate(self, request):
+        """
+        Authenticate the request using JWT token.
+        
+        Args:
+            request: Django REST Framework request object
+        
+        Returns:
+            tuple: (user, token) if authentication successful, None otherwise
+        
+        Raises:
+            AuthenticationFailed: If token is invalid or expired
+        """
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        
+        if not auth_header:
+            return None
+        
+        try:
+            # Extract token from "Bearer <token>" format
+            parts = auth_header.split()
+            if len(parts) != 2 or parts[0].lower() != 'bearer':
+                raise AuthenticationFailed('Invalid authorization header format')
+            
+            token = parts[1]
+            
+            # Decode and verify token
+            try:
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            except jwt.ExpiredSignatureError:
+                raise AuthenticationFailed('Token has expired')
+            except jwt.InvalidTokenError:
+                raise AuthenticationFailed('Invalid token')
+            
+            # Get user from payload
+            user_id = payload.get('user_id')
+            if not user_id:
+                raise AuthenticationFailed('Token payload invalid')
+            
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                raise AuthenticationFailed('User not found')
+            
+            return (user, token)
+        
+        except AuthenticationFailed:
+            raise
+        except Exception as e:
+            logger.error(f"Authentication error: {str(e)}")
+            raise AuthenticationFailed('Authentication failed')
 
 
 class SignupView(APIView):
@@ -257,5 +324,73 @@ class LoginView(APIView):
             )
             return Response(
                 {'error': 'An error occurred during login. Please try again later.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CurrentUserView(APIView):
+    """
+    API view for retrieving current authenticated user's data.
+    
+    Handles GET requests to fetch the current user's profile information.
+    Requires authentication via JWT token in Authorization header.
+    
+    Endpoint: GET /api/auth/me/
+    
+    Headers:
+        Authorization: Bearer <JWT_TOKEN>
+    
+    Success Response (200 OK):
+        {
+            "id": integer,
+            "username": "string",
+            "email": "string",
+            "role": "string",
+            "full_name": "string",
+            "created_at": "datetime"
+        }
+    
+    Error Responses:
+        - 401 Unauthorized: Missing or invalid token
+        - 500 Internal Server Error: Server error during data retrieval
+    """
+    
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        Handle GET request to retrieve current user data.
+        
+        Returns the authenticated user's profile information.
+        User is automatically available via request.user after authentication.
+        
+        Args:
+            request: Django REST Framework request object with authenticated user
+        
+        Returns:
+            Response: JSON response with user data or error message
+        """
+        try:
+            # User is already authenticated and available in request.user
+            user = request.user
+            
+            # Serialize user data for response (excludes password)
+            user_serializer = UserSerializer(user)
+            
+            # Return 200 OK with user data
+            return Response(
+                user_serializer.data,
+                status=status.HTTP_200_OK
+            )
+        
+        except Exception as e:
+            # Handle unexpected errors - return 500
+            logger.error(
+                f"Failed to retrieve user data: {str(e)}",
+                exc_info=True
+            )
+            return Response(
+                {'error': 'An error occurred while retrieving user data. Please try again later.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

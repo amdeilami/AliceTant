@@ -13,9 +13,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { signup } from '../utils/api';
+import { useToast } from '../contexts/ToastContext';
 
 function Signup() {
     const navigate = useNavigate();
+    const { showSuccess, showError } = useToast();
 
     // Form state management
     const [formData, setFormData] = useState({
@@ -181,8 +183,8 @@ function Signup() {
             // Store user data in localStorage
             localStorage.setItem('user', JSON.stringify(response));
 
-            // Show success message
-            alert('Account created successfully! Welcome to AliceTant.');
+            // Show success toast
+            showSuccess('Account created successfully! Welcome to AliceTant.');
 
             // Redirect to login page
             navigate('/login');
@@ -197,15 +199,14 @@ function Signup() {
 
                 if (status === 409) {
                     // Handle 409 conflict error (duplicate email/username)
-                    setErrors({
-                        general: errorData.error || 'An account with this email already exists. Please use a different email or login.'
-                    });
+                    const errorMsg = errorData.error || 'An account with this email already exists. Please use a different email or login.';
+                    setErrors({ general: errorMsg });
+                    showError(errorMsg);
                 } else if (status === 400) {
                     // Handle 400 validation error
                     if (errorData.error) {
-                        setErrors({
-                            general: errorData.error
-                        });
+                        setErrors({ general: errorData.error });
+                        showError(errorData.error);
                     } else if (errorData.details) {
                         // Map backend field errors to form fields
                         const fieldErrors = {};
@@ -213,27 +214,28 @@ function Signup() {
                             fieldErrors[key] = errorData.details[key];
                         });
                         setErrors(fieldErrors);
+                        showError('Please check your input and try again.');
                     } else {
-                        setErrors({
-                            general: 'Please check your input and try again.'
-                        });
+                        const errorMsg = 'Please check your input and try again.';
+                        setErrors({ general: errorMsg });
+                        showError(errorMsg);
                     }
                 } else {
                     // Handle other server errors
-                    setErrors({
-                        general: errorData.error || 'An error occurred during signup. Please try again later.'
-                    });
+                    const errorMsg = errorData.error || 'An error occurred during signup. Please try again later.';
+                    setErrors({ general: errorMsg });
+                    showError(errorMsg);
                 }
             } else if (error.request) {
                 // Handle network errors (no response received)
-                setErrors({
-                    general: 'Unable to connect to the server. Please check your internet connection and try again.'
-                });
+                const errorMsg = 'Unable to connect to the server. Please check your internet connection and try again.';
+                setErrors({ general: errorMsg });
+                showError(errorMsg);
             } else {
                 // Handle other errors
-                setErrors({
-                    general: 'An unexpected error occurred. Please try again.'
-                });
+                const errorMsg = 'An unexpected error occurred. Please try again.';
+                setErrors({ general: errorMsg });
+                showError(errorMsg);
             }
         } finally {
             setIsSubmitting(false);

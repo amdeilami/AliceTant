@@ -13,9 +13,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { login } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 function Login() {
     const navigate = useNavigate();
+    const { login: authLogin } = useAuth();
+    const { showSuccess, showError } = useToast();
 
     // Form state management
     const [formData, setFormData] = useState({
@@ -131,13 +135,28 @@ function Login() {
                 password: formData.password
             });
 
-            // Handle 200 success response
-            // Store token and user data in localStorage
-            localStorage.setItem('authToken', response.token);
-            localStorage.setItem('userData', JSON.stringify(response.user));
+            // Normalize role to lowercase for consistency
+            const normalizedUser = {
+                ...response.user,
+                role: response.user.role?.toLowerCase()
+            };
 
-            // Redirect to home page (or dashboard in the future)
-            navigate('/');
+            // Handle 200 success response
+            // Store token and user data using AuthContext
+            authLogin(response.token, normalizedUser);
+
+            // Show success toast
+            showSuccess('Login successful! Redirecting...');
+
+            // Redirect to role-specific dashboard
+            // Use setTimeout to ensure state updates complete before navigation
+            const dashboardPath = normalizedUser.role === 'customer'
+                ? '/dashboard/customer'
+                : '/dashboard/provider';
+
+            setTimeout(() => {
+                navigate(dashboardPath, { replace: true });
+            }, 100);
         } catch (error) {
             // Handle different error scenarios
             if (error.response) {
@@ -146,30 +165,30 @@ function Login() {
 
                 if (status === 401) {
                     // Handle 401 unauthorized error (invalid credentials)
-                    setErrors({
-                        general: errorData.error || 'Invalid email or password. Please try again.'
-                    });
+                    const errorMsg = errorData.error || 'Invalid email or password. Please try again.';
+                    setErrors({ general: errorMsg });
+                    showError(errorMsg);
                 } else if (status === 400) {
                     // Handle 400 validation error
-                    setErrors({
-                        general: errorData.error || 'Please check your input and try again.'
-                    });
+                    const errorMsg = errorData.error || 'Please check your input and try again.';
+                    setErrors({ general: errorMsg });
+                    showError(errorMsg);
                 } else {
                     // Handle other server errors
-                    setErrors({
-                        general: 'An unexpected error occurred. Please try again later.'
-                    });
+                    const errorMsg = 'An unexpected error occurred. Please try again later.';
+                    setErrors({ general: errorMsg });
+                    showError(errorMsg);
                 }
             } else if (error.request) {
                 // Handle network errors (no response received)
-                setErrors({
-                    general: 'Unable to connect to the server. Please check your internet connection and try again.'
-                });
+                const errorMsg = 'Unable to connect to the server. Please check your internet connection and try again.';
+                setErrors({ general: errorMsg });
+                showError(errorMsg);
             } else {
                 // Handle other errors
-                setErrors({
-                    general: 'Something went wrong. Please try again.'
-                });
+                const errorMsg = 'Something went wrong. Please try again.';
+                setErrors({ general: errorMsg });
+                showError(errorMsg);
             }
         } finally {
             setIsSubmitting(false);

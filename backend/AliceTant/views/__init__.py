@@ -6,8 +6,9 @@ and other application features.
 """
 
 from .auth_views import SignupView, LoginView
+from .appointment_views import AppointmentListView
 
-__all__ = ['SignupView', 'LoginView']
+__all__ = ['SignupView', 'LoginView', 'AppointmentListView']
 
 def health_check(request):
     """Simple health check endpoint."""

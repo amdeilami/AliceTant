@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '../../contexts/AuthContext';
 import Login from '../Login';
 import * as api from '../../utils/api';
 
@@ -20,12 +21,14 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-// Helper to render component with router
+// Helper to render component with router and auth context
 const renderLogin = () => {
     return render(
-        <BrowserRouter>
-            <Login />
-        </BrowserRouter>
+        <AuthProvider>
+            <BrowserRouter>
+                <Login />
+            </BrowserRouter>
+        </AuthProvider>
     );
 };
 
@@ -86,7 +89,7 @@ describe('Login Component', () => {
                     id: 1,
                     username: 'john',
                     email: 'john@example.com',
-                    role: 'CUSTOMER',
+                    role: 'customer',
                     full_name: 'John Doe'
                 }
             };
@@ -119,8 +122,8 @@ describe('Login Component', () => {
             // Verify user data stored in localStorage
             expect(localStorage.getItem('userData')).toBe(JSON.stringify(mockResponse.user));
 
-            // Verify navigation to home page
-            expect(mockNavigate).toHaveBeenCalledWith('/');
+            // Verify navigation to customer dashboard
+            expect(mockNavigate).toHaveBeenCalledWith('/dashboard/customer');
         });
 
         it('should handle 401 unauthorized error (invalid credentials)', async () => {

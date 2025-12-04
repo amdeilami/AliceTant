@@ -97,8 +97,8 @@ function Home() {
                     <div className="bg-white rounded-lg shadow-sm p-6 text-center">
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">System Status</h3>
                         <div className="inline-flex items-center gap-2">
-                            <span className={`w-3 h-3 rounded-full ${status.includes('Error') ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            <span className="text-gray-700">{status}</span>
+                            <span className={`w-3 h-3 rounded-full ${status?.includes('Error') ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                            <span className="text-gray-700">{status || 'Checking...'}</span>
                         </div>
                     </div>
                 </div>
