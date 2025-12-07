@@ -213,10 +213,10 @@
   - Verify color contrast meets WCAG AA standards
   - _Requirements: All requirements (accessibility is cross-cutting)_
 
-- [ ]* 15.1 Write unit tests for accessibility
+<!-- - [ ]* 15.1 Write unit tests for accessibility
   - Test keyboard navigation
   - Test ARIA attributes
-  - Test focus management
+  - Test focus management -->
 
 <!-- - [ ] 16. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise. -->
