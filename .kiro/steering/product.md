@@ -9,18 +9,23 @@ AliceTant is a lightweight online appointment-booking system designed for small 
 # Roles and Targets
 
 The platform supports two roles:
+The Platform is based on three main concepts:
 
-Provider: the business owner who defines availability and manages appointment slots.
+Business: an entity that provides a service to customers.
 
-Customer: a client who views available time slots and books appointments.
+Provider: the business owner who defines availability and manages appointment slots for that business.
 
-The system prioritizes strong data consistency—ensuring that no time slot can be double-booked—over raw performance. It is intended for small-scale usage (up to 10,000 customers for each provider).
+Customer: a client who views available time slots presented by businesses and books appointments.
+
+The system prioritizes strong data consistency—ensuring that no time slot can be double-booked—over raw performance. It is intended for small-scale usage (up to 10,000 customers for each business).
 
 ## Features
 
 - User registration and authentication
-- Provider availability management
+- Provider registration and authentication
+- Business registration and modification (by Provider(s))
+- Business availability management
 - Create, update, or cancel appointment slots
 - Customer booking and cancellation
-- Customer management
-- Provider content management (About, Contact, etc.)
+- Customers are able to search in Businesses and their avaialability
+- Business content management (About, Contact, etc.)

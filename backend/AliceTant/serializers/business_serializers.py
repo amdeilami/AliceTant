@@ -19,27 +19,55 @@ class BusinessSerializer(serializers.ModelSerializer):
     Fields:
         id: Business ID (read-only)
         name: Business name (required)
+        summary: Business summary (optional, max 512 characters)
+        logo: Business logo image file (optional)
+        logo_url: URL to access the logo image (read-only)
         description: Business description (required)
         phone: Contact phone number (required)
         email: Contact email (required)
         address: Business address (required)
+        provider_name: Name of the provider who owns this business (read-only)
         created_at: Creation timestamp (read-only)
         updated_at: Last update timestamp (read-only)
     """
+    
+    provider_name = serializers.CharField(source='provider.user.username', read_only=True)
+    logo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Business
         fields = [
             'id',
             'name',
+            'summary',
+            'logo',
+            'logo_url',
             'description',
             'phone',
             'email',
             'address',
+            'provider_name',
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'provider_name', 'logo_url']
+    
+    def get_logo_url(self, obj):
+        """
+        Generate URL for the business logo.
+        
+        Args:
+            obj (Business): Business instance
+            
+        Returns:
+            str or None: URL to the logo image if it exists, None otherwise
+        """
+        if obj.logo and hasattr(obj.logo, 'url'):
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
+        return None
     
     def validate_name(self, value):
         """
@@ -57,6 +85,23 @@ class BusinessSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Business name cannot be empty")
         return value.strip()
+    
+    def validate_summary(self, value):
+        """
+        Validate business summary does not exceed 512 characters.
+        
+        Args:
+            value (str): Business summary to validate
+            
+        Returns:
+            str: Validated business summary
+            
+        Raises:
+            serializers.ValidationError: If summary exceeds 512 characters
+        """
+        if value and len(value) > 512:
+            raise serializers.ValidationError("Summary must not exceed 512 characters")
+        return value
     
     def validate_phone(self, value):
         """

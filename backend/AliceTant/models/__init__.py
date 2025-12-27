@@ -7,5 +7,16 @@ from .provider import Provider
 from .customer import Customer
 from .business import Business
 from .availability import Availability
+from .appointment import Appointment, AppointmentCustomer, AppointmentStatus
 
-__all__ = ['User', 'UserRole', 'Provider', 'Customer', 'Business', 'Availability']
+__all__ = [
+    'User',
+    'UserRole',
+    'Provider',
+    'Customer',
+    'Business',
+    'Availability',
+    'Appointment',
+    'AppointmentCustomer',
+    'AppointmentStatus'
+]

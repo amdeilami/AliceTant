@@ -1,13 +1,18 @@
 """
 URL configuration for AliceTant application.
 """
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
 from .views.auth_views import SignupView, LoginView, CurrentUserView
 from .views.appointment_views import AppointmentListView, ProviderAppointmentListView, AppointmentCancelView
 from .views.profile_views import EmailUpdateView, PasswordUpdateView, AvatarUpdateView
-from .views.business_views import BusinessListCreateView, BusinessDetailView
+from .views.business_views import BusinessViewSet
 from .views.availability_views import AvailabilityListView, AvailabilityDetailView
+
+# Create router for ViewSets
+router = DefaultRouter()
+router.register(r'businesses', BusinessViewSet, basename='business')
 
 urlpatterns = [
     path('health/', views.health_check, name='health_check'),
@@ -20,8 +25,9 @@ urlpatterns = [
     path('profile/email/', EmailUpdateView.as_view(), name='profile_email'),
     path('profile/password/', PasswordUpdateView.as_view(), name='profile_password'),
     path('profile/avatar/', AvatarUpdateView.as_view(), name='profile_avatar'),
-    path('businesses/', BusinessListCreateView.as_view(), name='business_list_create'),
-    path('businesses/<int:business_id>/', BusinessDetailView.as_view(), name='business_detail'),
     path('availability/', AvailabilityListView.as_view(), name='availability_list'),
     path('availability/<int:availability_id>/', AvailabilityDetailView.as_view(), name='availability_detail'),
+    
+    # Include router URLs
+    path('', include(router.urls)),
 ]
