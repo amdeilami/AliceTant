@@ -161,8 +161,8 @@
     - Test serializer field output
     - _Requirements: 2.2, 10.3_
 
-- [ ] 9. Update Business API views
-  - [ ] 9.1 Update BusinessViewSet
+- [-] 9. Update Business API views
+  - [x] 9.1 Update BusinessViewSet
     - Update `backend/AliceTant/views/business_views.py`
     - Update create() to handle logo upload and use BusinessService
     - Update update() to handle logo upload and ownership check
@@ -176,8 +176,8 @@
     - Test search functionality
     - _Requirements: 3.2, 4.4, 5.3_
 
-- [ ] 10. Create Appointment API views
-  - [ ] 10.1 Create AppointmentViewSet
+- [x] 10. Create Appointment API views
+  - [x] 10.1 Create AppointmentViewSet
     - Create or update `backend/AliceTant/views/appointment_views.py`
     - Implement list() with filtering by user role (provider/customer)
     - Implement create() using AppointmentService
@@ -192,28 +192,29 @@
     - Test filtering
     - _Requirements: 6.1, 10.1, 9.1, 9.2, 7.3, 7.4_
 
-- [ ] 11. Update URL routing
-  - [ ] 11.1 Add appointment routes
+- [x] 11. Update URL routing
+  - [x] 11.1 Add appointment routes
     - Update `backend/AliceTant/urls.py`
     - Register AppointmentViewSet with router
     - Add cancel endpoint
     - _Requirements: 6.1, 9.1_
 
-- [ ] 12. Configure Django media settings
-  - [ ] 12.1 Update settings for file uploads
+- [x] 12. Configure Django media settings
+  - [x] 12.1 Update settings for file uploads
     - Update `backend/AliceTant_Engine/settings.py`
     - Configure MEDIA_ROOT and MEDIA_URL
     - Add Pillow to requirements.txt
     - Configure FILE_UPLOAD_MAX_MEMORY_SIZE
     - _Requirements: 2.3, 2.4_
 
-  - [ ] 12.2 Update URL configuration for media files
+  - [x] 12.2 Update URL configuration for media files
     - Update `backend/AliceTant_Engine/urls.py`
     - Add static file serving for development
     - _Requirements: 2.4_
 
-- [ ] 13. Checkpoint - Ensure backend tests pass
+- [x] 13. Checkpoint - Ensure backend tests pass
   - Ensure all backend tests pass, ask the user if questions arise.
+  - Ensure to to take care about "test_serializers.py","verify_schema.py", "verify_serializers.py" in the "backend" directory are taken care of. If they are no longer needed delete them, if they should be moved to the "tests" direcoty move them, if they are needed and shoud stay there, keep them as they are.
 
 - [ ] 14. Update BusinessManagement frontend component
   - [ ] 14.1 Update BusinessManagement component

@@ -55,4 +55,5 @@ The system is designed with **strong consistency** as the primary concern, ensur
 - **Vitest + React Testing Library** for frontend unit/integration tests
 - **Django Test Framework / pytest** for backend unit/integration tests -->
 
-Do not write tests for this project as we are planning to achieve a faster MVP.
+Do not write tests for this project as we are planning to achieve MVP quicker.
+After you are done editing each file, close it (except the files under .kiro directory).
