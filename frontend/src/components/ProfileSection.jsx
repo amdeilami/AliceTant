@@ -205,17 +205,17 @@ const ProfileSection = () => {
     };
 
     return (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             {/* Header */}
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">My Profile</h2>
-                <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your profile settings and preferences</p>
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Manage your profile settings and preferences</p>
             </div>
 
 
 
             {/* Tabs */}
-            <div className="border-b border-gray-200">
+            <div className="border-b border-gray-200 dark:border-gray-700">
                 <nav className="flex px-4 sm:px-6 overflow-x-auto" aria-label="Profile settings tabs" role="tablist">
                     <button
                         onClick={() => setActiveTab('avatar')}
@@ -224,8 +224,8 @@ const ProfileSection = () => {
                         aria-controls="avatar-panel"
                         id="avatar-tab"
                         className={`py-4 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'avatar'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                             }`}
                     >
                         Avatar
@@ -237,8 +237,8 @@ const ProfileSection = () => {
                         aria-controls="email-panel"
                         id="email-tab"
                         className={`py-4 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'email'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                             }`}
                     >
                         Email
@@ -250,8 +250,8 @@ const ProfileSection = () => {
                         aria-controls="password-panel"
                         id="password-tab"
                         className={`py-4 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'password'
-                            ? 'border-indigo-500 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
                             }`}
                     >
                         Password
@@ -264,53 +264,54 @@ const ProfileSection = () => {
                 {/* Avatar Tab */}
                 {activeTab === 'avatar' && (
                     <div role="tabpanel" id="avatar-panel" aria-labelledby="avatar-tab">
-                        <form onSubmit={handleAvatarSubmit} className="max-w-md" aria-label="Avatar upload form">
-                            <div className="mb-6">
-                                <label htmlFor="avatar-upload" className="block text-sm font-medium text-gray-700 mb-2">
-                                    Profile Picture
-                                </label>
-
-                                {/* Avatar Preview */}
-                                <div className="mb-4" role="img" aria-label={avatarPreview ? "Selected avatar preview" : "Default avatar placeholder"}>
+                        <form onSubmit={handleAvatarSubmit} className="max-w-sm mx-auto" aria-label="Avatar upload form">
+                            {/* Avatar Preview — centered */}
+                            <div className="flex flex-col items-center mb-6">
+                                <div className="relative group">
                                     {avatarPreview ? (
                                         <img
                                             src={avatarPreview}
                                             alt="Avatar preview"
-                                            className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                                            className="w-28 h-28 rounded-full object-cover ring-4 ring-gray-100 dark:ring-gray-700"
                                         />
                                     ) : (
-                                        <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <svg className="w-16 h-16 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <div className="w-28 h-28 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center ring-4 ring-gray-100 dark:ring-gray-700">
+                                            <svg className="w-12 h-12 text-gray-400 dark:text-gray-500" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                                 <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
                                         </div>
                                     )}
+                                    {/* Overlay pick button */}
+                                    <label
+                                        htmlFor="avatar-upload"
+                                        className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 hover:bg-black/40 transition-colors cursor-pointer group"
+                                    >
+                                        <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                            <path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </label>
                                 </div>
-
-                                {/* File Input */}
                                 <input
                                     id="avatar-upload"
                                     type="file"
                                     accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                                     onChange={handleAvatarChange}
-                                    className="block w-full text-sm text-gray-500
-                                        file:mr-4 file:py-2 file:px-4
-                                        file:rounded-md file:border-0
-                                        file:text-sm file:font-semibold
-                                        file:bg-indigo-50 file:text-indigo-700
-                                        hover:file:bg-indigo-100
-                                        cursor-pointer"
+                                    className="sr-only"
                                     aria-describedby="avatar-help"
                                 />
-                                <p id="avatar-help" className="mt-2 text-xs text-gray-500">
-                                    Accepted formats: JPEG, PNG, GIF, WEBP (max 5MB)
+                                <p id="avatar-help" className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
+                                    Click the photo to choose a file&ensp;&middot;&ensp;JPEG, PNG, GIF, WEBP&ensp;&middot;&ensp;Max 5 MB
                                 </p>
+                                {avatarFile && (
+                                    <p className="mt-1 text-sm font-medium text-indigo-600 dark:text-indigo-400">{avatarFile.name}</p>
+                                )}
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={isLoading || !avatarFile}
-                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                 aria-label={isLoading ? "Uploading avatar" : "Upload avatar"}
                             >
                                 {isLoading ? (
@@ -331,10 +332,10 @@ const ProfileSection = () => {
                     <div role="tabpanel" id="email-panel" aria-labelledby="email-tab">
                         <form onSubmit={handleEmailSubmit} className="max-w-md" aria-label="Email update form">
                             <div className="mb-6">
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Email Address
                                 </label>
-                                <p className="text-sm text-gray-500 mb-3" id="current-email">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3" id="current-email">
                                     Current email: <span className="font-medium">{user?.email}</span>
                                 </p>
                                 <input
@@ -342,7 +343,7 @@ const ProfileSection = () => {
                                     id="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     placeholder="Enter new email address"
                                     required
                                     aria-describedby="current-email"
@@ -353,7 +354,7 @@ const ProfileSection = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading || email === user?.email}
-                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                 aria-label={isLoading ? "Updating email" : "Update email"}
                             >
                                 {isLoading ? (
@@ -375,7 +376,7 @@ const ProfileSection = () => {
                         <form onSubmit={handlePasswordSubmit} className="max-w-md" aria-label="Password update form">
                             <div className="space-y-4 mb-6">
                                 <div>
-                                    <label htmlFor="current_password" className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label htmlFor="current_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Current Password
                                     </label>
                                     <input
@@ -383,7 +384,7 @@ const ProfileSection = () => {
                                         id="current_password"
                                         value={passwordData.current_password}
                                         onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Enter current password"
                                         required
                                         aria-label="Current password"
@@ -392,7 +393,7 @@ const ProfileSection = () => {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label htmlFor="new_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         New Password
                                     </label>
                                     <input
@@ -400,7 +401,7 @@ const ProfileSection = () => {
                                         id="new_password"
                                         value={passwordData.new_password}
                                         onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Enter new password (min 8 characters)"
                                         required
                                         minLength={8}
@@ -414,7 +415,7 @@ const ProfileSection = () => {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Confirm New Password
                                     </label>
                                     <input
@@ -422,7 +423,7 @@ const ProfileSection = () => {
                                         id="confirm_password"
                                         value={passwordData.confirm_password}
                                         onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Confirm new password"
                                         required
                                         aria-label="Confirm new password"
@@ -434,7 +435,7 @@ const ProfileSection = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                 aria-label={isLoading ? "Updating password" : "Update password"}
                             >
                                 {isLoading ? (
