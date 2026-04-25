@@ -182,11 +182,12 @@ class UserSerializer(serializers.ModelSerializer):
     """
     
     full_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'full_name', 'created_at']
-        read_only_fields = ['id', 'username', 'email', 'role', 'full_name', 'created_at']
+        fields = ['id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'created_at']
+        read_only_fields = ['id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'created_at']
     
     def get_full_name(self, obj):
         """
@@ -218,3 +219,11 @@ class UserSerializer(serializers.ModelSerializer):
         elif obj.last_name:
             return obj.last_name
         return ""
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None

@@ -87,9 +87,9 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
                     <div className="flex items-center space-x-3" role="region" aria-label="User information">
                         {/* Avatar */}
                         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-600 text-white font-semibold" aria-hidden="true">
-                            {user?.avatar ? (
+                            {user?.avatar_url ? (
                                 <img
-                                    src={user.avatar}
+                                    src={user.avatar_url}
                                     alt={`${displayName}'s profile picture`}
                                     className="w-10 h-10 rounded-full object-cover"
                                 />

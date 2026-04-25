@@ -180,7 +180,7 @@ class SignupView(APIView):
             )
             
             # Serialize user data for response (excludes password)
-            user_serializer = UserSerializer(user)
+            user_serializer = UserSerializer(user, context={'request': request})
             
             # Return 201 Created with user data
             return Response(
@@ -304,7 +304,7 @@ class LoginView(APIView):
             token = AuthService.generate_jwt_token(user)
             
             # Serialize user data for response (excludes password)
-            user_serializer = UserSerializer(user)
+            user_serializer = UserSerializer(user, context={'request': request})
             
             # Return 200 OK with token and user data
             return Response(
@@ -376,7 +376,7 @@ class CurrentUserView(APIView):
             user = request.user
             
             # Serialize user data for response (excludes password)
-            user_serializer = UserSerializer(user)
+            user_serializer = UserSerializer(user, context={'request': request})
             
             # Return 200 OK with user data
             return Response(

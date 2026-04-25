@@ -70,6 +70,13 @@ class User(AbstractUser):
         auto_now=True,
         help_text="Timestamp when the user was last modified"
     )
+
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        null=True,
+        blank=True,
+        help_text="User's profile picture"
+    )
     
     class Meta:
         """

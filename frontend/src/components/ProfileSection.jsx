@@ -105,6 +105,11 @@ const ProfileSection = () => {
 
             showSuccess(response.data.message || 'Avatar updated successfully');
 
+            // Update user context with new avatar URL
+            if (response.data.avatar_url) {
+                updateUser({ ...user, avatar_url: response.data.avatar_url });
+            }
+
             // Reset form
             setAvatarFile(null);
             setAvatarPreview(null);
@@ -268,9 +273,9 @@ const ProfileSection = () => {
                             {/* Avatar Preview — centered */}
                             <div className="flex flex-col items-center mb-6">
                                 <div className="relative group">
-                                    {avatarPreview ? (
+                                    {avatarPreview || user?.avatar_url ? (
                                         <img
-                                            src={avatarPreview}
+                                            src={avatarPreview || user.avatar_url}
                                             alt="Avatar preview"
                                             className="w-28 h-28 rounded-full object-cover ring-4 ring-gray-100 dark:ring-gray-700"
                                         />

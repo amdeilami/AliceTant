@@ -265,22 +265,22 @@ class AvatarUpdateView(APIView):
             )
         
         try:
-            # For now, we'll store avatar info in a simple way
-            # In production, you'd want to use Django's FileField or ImageField
-            # and store files in media directory or cloud storage
-            
             avatar_file = serializer.validated_data['avatar']
-            
-            # TODO: Implement actual file storage
-            # For MVP, we'll just acknowledge the upload
-            # In production: save to user.avatar field and return URL
+
+            # Delete old avatar if it exists
+            if user.avatar:
+                user.avatar.delete(save=False)
+
+            user.avatar = avatar_file
+            user.save(update_fields=['avatar'])
             
             logger.info(f"Avatar uploaded for user {user.id}: {avatar_file.name}")
             
+            avatar_url = request.build_absolute_uri(user.avatar.url)
             return Response(
                 {
                     'message': 'Avatar updated successfully',
-                    'avatar_url': f'/media/avatars/{user.id}/{avatar_file.name}'
+                    'avatar_url': avatar_url
                 },
                 status=status.HTTP_200_OK
             )
