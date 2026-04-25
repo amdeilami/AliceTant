@@ -18,6 +18,7 @@ import Signup from './pages/Signup';
 import Login from './pages/Login';
 import CustomerDashboard from './pages/CustomerDashboard';
 import ProviderDashboard from './pages/ProviderDashboard';
+import BusinessPage from './pages/BusinessPage';
 import './App.css';
 
 function App() {
@@ -39,6 +40,16 @@ function App() {
                   element={
                     <ProtectedRoute requiredRole="customer">
                       <CustomerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Business detail page (customer) */}
+                <Route
+                  path="/business/:id"
+                  element={
+                    <ProtectedRoute requiredRole="customer">
+                      <BusinessPage />
                     </ProtectedRoute>
                   }
                 />

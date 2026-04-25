@@ -32,7 +32,7 @@ const DashboardSidebar = ({ role, activeSection, onNavigate, isOpen, onClose }) 
         },
         {
             id: 'search',
-            label: 'Search Providers',
+            label: 'Search Businesses',
             icon: (
                 <svg className="w-5 h-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                     <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -123,7 +123,7 @@ const DashboardSidebar = ({ role, activeSection, onNavigate, isOpen, onClose }) 
             <aside
                 id="dashboard-sidebar"
                 className={`
-                    fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white shadow-lg z-30
+                    fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 shadow-lg z-30
                     transform transition-transform duration-300 ease-in-out
                     md:translate-x-0
                     ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -151,14 +151,14 @@ const DashboardSidebar = ({ role, activeSection, onNavigate, isOpen, onClose }) 
                                             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
                                             ${isActive
                                                 ? 'bg-indigo-600 text-white'
-                                                : 'text-gray-700 hover:bg-gray-100'
+                                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                             }
                                         `}
                                         aria-current={isActive ? 'page' : undefined}
                                         aria-label={`Navigate to ${item.label}`}
                                         type="button"
                                     >
-                                        <span className={isActive ? 'text-white' : 'text-gray-500'} aria-hidden="true">
+                                        <span className={isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'} aria-hidden="true">
                                             {item.icon}
                                         </span>
                                         <span className="font-medium">{item.label}</span>

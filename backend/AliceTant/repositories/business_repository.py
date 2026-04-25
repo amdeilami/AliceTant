@@ -132,9 +132,10 @@ class BusinessRepository:
     @staticmethod
     def search_businesses(query: str) -> List[Business]:
         """
-        Search businesses by name or summary.
+        Search businesses by name, summary, phone, or email.
         
-        Performs a case-insensitive search across business name and summary fields.
+        Performs a case-insensitive search across business name, summary,
+        phone, and email fields.
         
         Args:
             query (str): Search query string
@@ -143,14 +144,21 @@ class BusinessRepository:
             List[Business]: List of businesses matching the search query
         """
         if not query or not query.strip():
-            return []
+            return list(
+                Business.objects
+                .select_related('provider__user')
+                .order_by('-created_at')
+            )
         
         query = query.strip()
         return list(
             Business.objects
             .select_related('provider__user')
             .filter(
-                Q(name__icontains=query) | Q(summary__icontains=query)
+                Q(name__icontains=query) |
+                Q(summary__icontains=query) |
+                Q(phone__icontains=query) |
+                Q(email__icontains=query)
             )
             .order_by('-created_at')
         )

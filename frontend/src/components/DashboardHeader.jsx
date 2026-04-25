@@ -40,20 +40,20 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
         .slice(0, 2);
 
     return (
-        <header className="fixed top-0 left-0 right-0 bg-white shadow-md z-30" role="banner">
+        <header className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-md z-30" role="banner">
             <div className="flex items-center justify-between px-4 py-3 md:px-6">
                 {/* Left section: Hamburger menu (mobile) + Logo/Title */}
                 <div className="flex items-center space-x-4">
                     {/* Hamburger menu button - visible on mobile */}
                     <button
                         onClick={onToggleSidebar}
-                        className="md:hidden p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         aria-label={isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
                         aria-expanded={isSidebarOpen}
                         aria-controls="dashboard-sidebar"
                     >
                         <svg
-                            className="w-6 h-6 text-gray-600"
+                            className="w-6 h-6 text-gray-600 dark:text-gray-300"
                             fill="none"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -72,10 +72,10 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
 
                     {/* Logo/Title */}
                     <div className="flex items-center">
-                        <h1 className="text-xl md:text-2xl font-bold text-indigo-600">
+                        <h1 className="text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                             AliceTant
                         </h1>
-                        <span className="ml-2 text-sm text-gray-500 hidden sm:inline" aria-label={`${role === 'customer' ? 'Customer' : 'Provider'} Dashboard`}>
+                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 hidden sm:inline" aria-label={`${role === 'customer' ? 'Customer' : 'Provider'} Dashboard`}>
                             {role === 'customer' ? 'Customer' : 'Provider'} Dashboard
                         </span>
                     </div>
@@ -100,8 +100,8 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
 
                         {/* User name - hidden on small mobile */}
                         <div className="hidden sm:block">
-                            <p className="text-sm font-medium text-gray-900">{displayName}</p>
-                            <p className="text-xs text-gray-500">{user?.email}</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
                         </div>
                     </div>
 

@@ -43,12 +43,6 @@ class AvailabilityListView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if business.provider.user != request.user:
-            return Response(
-                {'error': 'You don\'t have permission to view this business\'s availability.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         availability_slots = Availability.objects.filter(business=business)
         serializer = AvailabilitySerializer(availability_slots, many=True)
         
