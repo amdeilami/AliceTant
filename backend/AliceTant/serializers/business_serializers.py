@@ -19,10 +19,9 @@ class BusinessSerializer(serializers.ModelSerializer):
     Fields:
         id: Business ID (read-only)
         name: Business name (required)
-        summary: Business summary (optional, max 512 characters)
+        summary: Business summary (optional, max 4096 characters)
         logo: Business logo image file (optional)
         logo_url: URL to access the logo image (read-only)
-        description: Business description (required)
         phone: Contact phone number (required)
         email: Contact email (required)
         address: Business address (required)
@@ -42,7 +41,6 @@ class BusinessSerializer(serializers.ModelSerializer):
             'summary',
             'logo',
             'logo_url',
-            'description',
             'phone',
             'email',
             'address',

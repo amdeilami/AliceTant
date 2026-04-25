@@ -10,6 +10,7 @@ from django.utils import timezone
 from datetime import datetime
 from .business import Business
 from .customer import Customer
+from .availability import Availability
 
 
 class AppointmentStatus(models.TextChoices):
@@ -58,7 +59,20 @@ class Appointment(models.Model):
         help_text="Date of the appointment"
     )
     appointment_time = models.TimeField(
-        help_text="Time of the appointment"
+        help_text="Start time of the appointment"
+    )
+    end_time = models.TimeField(
+        help_text="End time of the appointment",
+        null=True,
+        blank=True,
+    )
+    availability = models.ForeignKey(
+        Availability,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bookings',
+        help_text="The availability slot this appointment was booked against"
     )
     status = models.CharField(
         max_length=10,
@@ -87,13 +101,7 @@ class Appointment(models.Model):
         indexes = [
             models.Index(fields=['business', 'appointment_date', 'appointment_time']),
             models.Index(fields=['appointment_date', 'status']),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['business', 'appointment_date', 'appointment_time'],
-                condition=models.Q(status='ACTIVE'),
-                name='unique_active_appointment_slot'
-            )
+            models.Index(fields=['availability', 'appointment_date', 'status']),
         ]
     
     def is_upcoming(self):

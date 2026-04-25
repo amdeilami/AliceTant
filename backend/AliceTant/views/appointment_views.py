@@ -13,9 +13,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from datetime import datetime, date
 
-from ..models import Appointment, Customer, Provider
+from ..models import Appointment, Customer, Provider, Availability
 from ..serializers.appointment_serializers import AppointmentSerializer
 from ..services.appointment_service import AppointmentService
+from ..repositories.appointment_repository import AppointmentRepository
+from ..views.auth_views import JWTAuthentication
 from ..exceptions.user_exceptions import (
     InvalidAppointmentDataError,
     TimeSlotConflictError,
@@ -48,6 +50,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     """
     
     serializer_class = AppointmentSerializer
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status']
@@ -154,6 +157,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             customer_ids = request.data.get('customers', [])
             appointment_date_str = request.data.get('appointment_date')
             appointment_time_str = request.data.get('appointment_time')
+            end_time_str = request.data.get('end_time')
+            availability_id = request.data.get('availability')
             notes = request.data.get('notes', '')
             
             # Validate required fields
@@ -198,12 +203,25 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Parse optional end_time
+            end_time = None
+            if end_time_str:
+                try:
+                    end_time = datetime.strptime(end_time_str, '%H:%M').time()
+                except ValueError:
+                    return Response(
+                        {'error': 'Invalid end_time format. Use HH:MM'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
             # Create appointment using service
             appointment = AppointmentService.book_appointment(
                 business_id=int(business_id),
                 customer_ids=[int(cid) for cid in customer_ids],
                 appointment_date=appointment_date,
                 appointment_time=appointment_time,
+                end_time=end_time,
+                availability_id=int(availability_id) if availability_id else None,
                 notes=notes
             )
             
@@ -304,6 +322,142 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         )
     
     @action(detail=True, methods=['post'])
+    def reschedule(self, request, pk=None):
+        """
+        Reschedule an appointment (change date and/or time).
+        
+        Only providers who own the business can reschedule.
+        
+        Args:
+            request: HTTP request with new appointment_date and/or appointment_time
+            pk: Appointment ID
+            
+        Returns:
+            Response: Updated appointment data or error message
+        """
+        try:
+            appointment = self.get_object()
+            user = request.user
+            
+            # Only providers can reschedule
+            if not user.is_provider():
+                return Response(
+                    {'error': 'Only providers can reschedule appointments'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Verify provider owns the business
+            try:
+                provider = Provider.objects.get(user=user)
+            except Provider.DoesNotExist:
+                return Response(
+                    {'error': 'Provider profile not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            if appointment.business.provider != provider:
+                return Response(
+                    {'error': 'You are not authorized to reschedule this appointment'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Can only reschedule active appointments
+            if appointment.status != 'ACTIVE':
+                return Response(
+                    {'error': 'Only active appointments can be rescheduled'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            new_date_str = request.data.get('appointment_date')
+            new_time_str = request.data.get('appointment_time')
+            
+            if not new_date_str and not new_time_str:
+                return Response(
+                    {'error': 'At least one of appointment_date or appointment_time is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            new_date = appointment.appointment_date
+            new_time = appointment.appointment_time
+            
+            if new_date_str:
+                try:
+                    new_date = datetime.strptime(new_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response(
+                        {'error': 'Invalid date format. Use YYYY-MM-DD'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            if new_time_str:
+                try:
+                    new_time = datetime.strptime(new_time_str, '%H:%M').time()
+                except ValueError:
+                    return Response(
+                        {'error': 'Invalid time format. Use HH:MM'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Validate new datetime is in the future
+            new_datetime = datetime.combine(new_date, new_time)
+            if new_datetime <= datetime.now():
+                return Response(
+                    {'error': 'New appointment date and time must be in the future'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check for conflicts — capacity-aware when availability is linked
+            if appointment.availability:
+                overlap_count = AppointmentRepository.count_overlapping_bookings(
+                    availability=appointment.availability,
+                    appointment_date=new_date,
+                    start_time=new_time,
+                    end_time=appointment.end_time or new_time,
+                    exclude_appointment_id=appointment.id,
+                )
+                max_cap = appointment.availability.capacity or 1
+                if overlap_count >= max_cap:
+                    return Response(
+                        {'error': 'This time slot is fully booked (capacity reached)'},
+                        status=status.HTTP_409_CONFLICT
+                    )
+            else:
+                conflict = Appointment.objects.filter(
+                    business=appointment.business,
+                    appointment_date=new_date,
+                    appointment_time=new_time,
+                    status='ACTIVE'
+                ).exclude(id=appointment.id).exists()
+                if conflict:
+                    return Response(
+                        {'error': 'This time slot is already booked'},
+                        status=status.HTTP_409_CONFLICT
+                    )
+            
+            # Update notes if provided
+            notes = request.data.get('notes')
+            if notes is not None:
+                appointment.notes = notes
+            
+            appointment.appointment_date = new_date
+            appointment.appointment_time = new_time
+            appointment.save()
+            
+            serializer = self.get_serializer(appointment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except (ValueError, TypeError) as e:
+            return Response(
+                {'error': f'Invalid data format: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to reschedule appointment: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         """
         Cancel an appointment based on user role.
@@ -388,6 +542,7 @@ class AppointmentListView(viewsets.ReadOnlyModelViewSet):
     Maintained for backward compatibility.
     """
     serializer_class = AppointmentSerializer
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
@@ -410,6 +565,7 @@ class ProviderAppointmentListView(viewsets.ReadOnlyModelViewSet):
     Maintained for backward compatibility.
     """
     serializer_class = AppointmentSerializer
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
@@ -431,6 +587,7 @@ class AppointmentCancelView(viewsets.GenericViewSet):
     DEPRECATED: Use AppointmentViewSet.cancel action instead.
     Maintained for backward compatibility.
     """
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     @action(detail=True, methods=['post'])

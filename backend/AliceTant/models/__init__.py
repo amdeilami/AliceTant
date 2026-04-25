@@ -8,6 +8,7 @@ from .customer import Customer
 from .business import Business
 from .availability import Availability
 from .appointment import Appointment, AppointmentCustomer, AppointmentStatus
+from .working_hours import WorkingHours, BusinessClosure
 
 __all__ = [
     'User',
@@ -18,5 +19,7 @@ __all__ = [
     'Availability',
     'Appointment',
     'AppointmentCustomer',
-    'AppointmentStatus'
+    'AppointmentStatus',
+    'WorkingHours',
+    'BusinessClosure',
 ]

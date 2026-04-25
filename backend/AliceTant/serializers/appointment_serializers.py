@@ -34,6 +34,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     
     business_name = serializers.CharField(source='business.name', read_only=True)
     customer_names = serializers.SerializerMethodField()
+    customer_emails = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
     
     class Meta:
@@ -44,8 +45,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'business_name',
             'customers',
             'customer_names',
+            'customer_emails',
             'appointment_date',
             'appointment_time',
+            'end_time',
+            'availability',
             'status',
             'notes',
             'is_upcoming',
@@ -73,6 +77,18 @@ class AppointmentSerializer(serializers.ModelSerializer):
             list: List of customer full names
         """
         return [customer.full_name for customer in obj.customers.all()]
+    
+    def get_customer_emails(self, obj):
+        """
+        Get list of customer emails for this appointment.
+        
+        Args:
+            obj (Appointment): Appointment instance
+            
+        Returns:
+            list: List of customer email addresses
+        """
+        return [customer.user.email for customer in obj.customers.all()]
     
     def get_is_upcoming(self, obj):
         """

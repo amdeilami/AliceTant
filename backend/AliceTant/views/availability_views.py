@@ -5,39 +5,28 @@ This module contains API views for providers to manage their availability
 slots for each business.
 """
 
+import uuid
+from datetime import datetime, timedelta
+
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
+from django.db import transaction, IntegrityError
 
 from AliceTant.models import Availability, Business
 from AliceTant.serializers.availability_serializers import (
     AvailabilitySerializer,
     AvailabilityCreateSerializer
 )
+from AliceTant.views.auth_views import JWTAuthentication
 
 
 class AvailabilityListView(APIView):
-    """
-    API view for listing and creating availability slots.
-    
-    GET: List all availability slots for a specific business
-    POST: Create multiple availability slots for a business
-    """
-    
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        """
-        Get all availability slots for a specific business.
-        
-        Query Parameters:
-            business_id (int): ID of the business to fetch availability for
-        
-        Returns:
-            Response: List of availability slots
-        """
         business_id = request.query_params.get('business_id')
         
         if not business_id:
@@ -54,14 +43,12 @@ class AvailabilityListView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check if the business belongs to the current provider
         if business.provider.user != request.user:
             return Response(
                 {'error': 'You don\'t have permission to view this business\'s availability.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get all availability slots for this business
         availability_slots = Availability.objects.filter(business=business)
         serializer = AvailabilitySerializer(availability_slots, many=True)
         
@@ -69,17 +56,11 @@ class AvailabilityListView(APIView):
     
     def post(self, request):
         """
-        Create multiple availability slots for a business.
-        
-        This endpoint replaces all existing availability slots for the business
-        with the new slots provided.
-        
-        Request Body:
-            business_id (int): ID of the business
-            slots (list): List of availability slot objects
-        
-        Returns:
-            Response: Created availability slots
+        Create availability slots. Supports recurring weekly expansion.
+
+        If overlaps are found with existing slots:
+          - Without force_overwrite: returns 409 with conflict details
+          - With force_overwrite=true: deletes conflicting existing slots, then creates new ones
         """
         serializer = AvailabilityCreateSerializer(
             data=request.data,
@@ -94,6 +75,7 @@ class AvailabilityListView(APIView):
         
         business_id = serializer.validated_data['business_id']
         slots = serializer.validated_data['slots']
+        force_overwrite = request.data.get('force_overwrite', False)
         
         try:
             business = Business.objects.get(id=business_id)
@@ -102,26 +84,89 @@ class AvailabilityListView(APIView):
                 {'error': 'Business not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Use transaction to ensure all slots are created or none
-        with transaction.atomic():
-            # Delete existing availability slots for this business
-            Availability.objects.filter(business=business).delete()
-            
-            # Create new availability slots
-            created_slots = []
-            for slot_data in slots:
-                availability = Availability.objects.create(
+
+        # Expand recurring slots
+        to_create = []
+        for slot_data in slots:
+            slot_date = datetime.strptime(slot_data['date'], '%Y-%m-%d').date()
+            is_recurring = slot_data.get('is_recurring', False)
+            num_weeks = int(slot_data.get('num_weeks', 1)) if is_recurring else 1
+            group_id = uuid.uuid4() if is_recurring and num_weeks > 1 else None
+            capacity = slot_data.get('capacity')
+            if capacity is not None:
+                capacity = int(capacity)
+            else:
+                capacity = None
+
+            for w in range(num_weeks):
+                d = slot_date + timedelta(weeks=w)
+                to_create.append(Availability(
                     business=business,
-                    day_of_week=slot_data['day_of_week'],
+                    date=d,
                     start_time=slot_data['start_time'],
-                    end_time=slot_data['end_time']
-                )
-                created_slots.append(availability)
+                    end_time=slot_data['end_time'],
+                    capacity=capacity or None,
+                    recurring_group=group_id,
+                ))
+
+        # Build existing slots map
+        existing = Availability.objects.filter(business=business)
+        existing_map = {}  # date -> [(start, end, id)]
+        for ex in existing:
+            existing_map.setdefault(ex.date, []).append(
+                (ex.start_time, ex.end_time, ex.id)
+            )
+
+        # Find overlaps
+        conflicts = []  # list of (new_item, conflicting_existing_id, description)
+        conflicting_ids = set()
+        for item in to_create:
+            new_start = datetime.strptime(item.start_time, '%H:%M').time() if isinstance(item.start_time, str) else item.start_time
+            new_end = datetime.strptime(item.end_time, '%H:%M').time() if isinstance(item.end_time, str) else item.end_time
+            for ex_start, ex_end, ex_id in existing_map.get(item.date, []):
+                if new_start < ex_end and new_end > ex_start:
+                    conflicts.append({
+                        'date': str(item.date),
+                        'new_time': f"{new_start.strftime('%H:%M')}-{new_end.strftime('%H:%M')}",
+                        'existing_time': f"{ex_start.strftime('%H:%M')}-{ex_end.strftime('%H:%M')}",
+                        'existing_id': ex_id,
+                    })
+                    conflicting_ids.add(ex_id)
+
+        # If there are overlaps and user hasn't confirmed overwrite, return warning
+        if conflicts and not force_overwrite:
+            return Response({
+                'warning': 'Some new slots overlap with existing availability.',
+                'conflicts': conflicts,
+            }, status=status.HTTP_409_CONFLICT)
+
+        # If force_overwrite, delete the conflicting existing slots first
+        with transaction.atomic():
+            if conflicts and force_overwrite:
+                Availability.objects.filter(id__in=conflicting_ids).delete()
+
+            created_slots = []
+            # Track what we're adding for intra-batch overlap detection
+            added_map = {}
+            for item in to_create:
+                new_start = datetime.strptime(item.start_time, '%H:%M').time() if isinstance(item.start_time, str) else item.start_time
+                new_end = datetime.strptime(item.end_time, '%H:%M').time() if isinstance(item.end_time, str) else item.end_time
+                # Check intra-batch overlap
+                intra_overlap = False
+                for a_start, a_end in added_map.get(item.date, []):
+                    if new_start < a_end and new_end > a_start:
+                        intra_overlap = True
+                        break
+                if intra_overlap:
+                    continue
+                item.save()
+                created_slots.append(item)
+                added_map.setdefault(item.date, []).append((new_start, new_end))
         
-        # Serialize and return created slots
         result_serializer = AvailabilitySerializer(created_slots, many=True)
-        return Response(result_serializer.data, status=status.HTTP_201_CREATED)
+        return Response({
+            'created': result_serializer.data,
+        }, status=status.HTTP_201_CREATED)
 
 
 class AvailabilityDetailView(APIView):
@@ -133,6 +178,7 @@ class AvailabilityDetailView(APIView):
     DELETE: Delete a specific availability slot
     """
     
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get_object(self, availability_id, user):

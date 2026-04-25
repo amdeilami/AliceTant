@@ -12,29 +12,17 @@ from AliceTant.models import Availability, Business
 class AvailabilitySerializer(serializers.ModelSerializer):
     """
     Serializer for Availability model.
-    
-    Handles serialization and deserialization of availability slots,
-    including validation of time ordering.
     """
     
     class Meta:
         model = Availability
-        fields = ['id', 'business', 'day_of_week', 'start_time', 'end_time', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = [
+            'id', 'business', 'date', 'day_of_week', 'start_time', 'end_time',
+            'capacity', 'recurring_group', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'day_of_week', 'created_at', 'updated_at']
     
     def validate(self, data):
-        """
-        Validate that end_time is after start_time.
-        
-        Args:
-            data (dict): Dictionary containing availability data
-            
-        Returns:
-            dict: Validated data
-            
-        Raises:
-            ValidationError: If end_time is not after start_time
-        """
         start_time = data.get('start_time')
         end_time = data.get('end_time')
         
@@ -48,9 +36,11 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 
 class AvailabilityCreateSerializer(serializers.Serializer):
     """
-    Serializer for creating multiple availability slots at once.
-    
-    Accepts a business_id and a list of availability slots to create.
+    Serializer for creating availability slots (single or recurring).
+
+    Accepts a business_id and a list of slot definitions. Each slot has a
+    date, start_time, end_time, optional capacity, and optional recurring
+    config (is_recurring + num_weeks, max 64).
     """
     
     business_id = serializers.IntegerField(required=True)
@@ -61,18 +51,6 @@ class AvailabilityCreateSerializer(serializers.Serializer):
     )
     
     def validate_business_id(self, value):
-        """
-        Validate that the business exists and belongs to the current user.
-        
-        Args:
-            value (int): Business ID
-            
-        Returns:
-            int: Validated business ID
-            
-        Raises:
-            ValidationError: If business doesn't exist or doesn't belong to user
-        """
         user = self.context.get('request').user
         
         try:
@@ -80,57 +58,99 @@ class AvailabilityCreateSerializer(serializers.Serializer):
         except Business.DoesNotExist:
             raise serializers.ValidationError("Business not found.")
         
-        # Check if the business belongs to the current provider
         if business.provider.user != user:
             raise serializers.ValidationError("You don't have permission to manage this business.")
         
         return value
     
     def validate_slots(self, value):
-        """
-        Validate each slot in the list.
-        
-        Args:
-            value (list): List of slot dictionaries
-            
-        Returns:
-            list: Validated slots
-            
-        Raises:
-            ValidationError: If any slot is invalid
-        """
+        from datetime import datetime, date, timedelta
+        from collections import defaultdict
+
+        today = date.today()
+
         for slot in value:
-            # Validate required fields
-            if 'day_of_week' not in slot:
-                raise serializers.ValidationError("Each slot must have 'day_of_week'.")
+            # Required fields
+            if 'date' not in slot:
+                raise serializers.ValidationError("Each slot must have 'date'.")
             if 'start_time' not in slot:
                 raise serializers.ValidationError("Each slot must have 'start_time'.")
             if 'end_time' not in slot:
                 raise serializers.ValidationError("Each slot must have 'end_time'.")
-            
-            # Validate day_of_week range
-            day = slot['day_of_week']
-            if not isinstance(day, int) or day < 0 or day > 6:
-                raise serializers.ValidationError("day_of_week must be an integer between 0 and 6.")
-            
-            # Validate time format (will be handled by TimeField)
-            # Validate time ordering
+
+            # Validate date
+            try:
+                slot_date = datetime.strptime(slot['date'], '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(
+                    "Date must be in YYYY-MM-DD format."
+                )
+            if slot_date < today:
+                raise serializers.ValidationError(
+                    f"Date {slot['date']} is in the past."
+                )
+
+            # Validate times
             start_time = slot['start_time']
             end_time = slot['end_time']
-            
-            # Convert string times to time objects for comparison
-            from datetime import datetime
             try:
                 start = datetime.strptime(start_time, '%H:%M').time()
                 end = datetime.strptime(end_time, '%H:%M').time()
-                
                 if end <= start:
                     raise serializers.ValidationError(
-                        f"End time must be after start time for slot: {slot}"
+                        f"End time must be after start time for slot on {slot['date']}."
                     )
             except ValueError:
                 raise serializers.ValidationError(
                     "Time must be in HH:MM format (e.g., '09:00')."
                 )
-        
+
+            # Validate optional capacity
+            capacity = slot.get('capacity')
+            if capacity is not None:
+                try:
+                    capacity = int(capacity)
+                    if capacity < 1:
+                        raise serializers.ValidationError("Capacity must be at least 1.")
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError("Capacity must be a positive integer.")
+
+            # Validate recurring options
+            is_recurring = slot.get('is_recurring', False)
+            if is_recurring:
+                num_weeks = slot.get('num_weeks', 1)
+                try:
+                    num_weeks = int(num_weeks)
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError("num_weeks must be an integer.")
+                if num_weeks < 1 or num_weeks > 64:
+                    raise serializers.ValidationError(
+                        "num_weeks must be between 1 and 64."
+                    )
+
+        # Expand recurring slots into individual dates for overlap checking
+        all_date_slots = defaultdict(list)
+        for slot in value:
+            slot_date = datetime.strptime(slot['date'], '%Y-%m-%d').date()
+            start = datetime.strptime(slot['start_time'], '%H:%M').time()
+            end = datetime.strptime(slot['end_time'], '%H:%M').time()
+
+            is_recurring = slot.get('is_recurring', False)
+            num_weeks = int(slot.get('num_weeks', 1)) if is_recurring else 1
+
+            for w in range(num_weeks):
+                d = slot_date + timedelta(weeks=w)
+                all_date_slots[d].append((start, end))
+
+        # Check for overlaps within the new set
+        for d, times in all_date_slots.items():
+            times.sort()
+            for i in range(len(times) - 1):
+                if times[i][1] > times[i + 1][0]:
+                    raise serializers.ValidationError(
+                        f"Overlapping time slots on {d.isoformat()}: "
+                        f"{times[i][0].strftime('%H:%M')}-{times[i][1].strftime('%H:%M')} "
+                        f"overlaps with {times[i+1][0].strftime('%H:%M')}-{times[i+1][1].strftime('%H:%M')}."
+                    )
+
         return value

@@ -9,6 +9,10 @@ from .views.appointment_views import AppointmentViewSet, AppointmentListView, Pr
 from .views.profile_views import EmailUpdateView, PasswordUpdateView, AvatarUpdateView
 from .views.business_views import BusinessViewSet
 from .views.availability_views import AvailabilityListView, AvailabilityDetailView
+from .views.working_hours_views import (
+    WorkingHoursListView, WorkingHoursDetailView,
+    BusinessClosureListView, BusinessClosureDetailView,
+)
 
 # Create router for ViewSets
 router = DefaultRouter()
@@ -31,6 +35,10 @@ urlpatterns = [
     path('profile/avatar/', AvatarUpdateView.as_view(), name='profile_avatar'),
     path('availability/', AvailabilityListView.as_view(), name='availability_list'),
     path('availability/<int:availability_id>/', AvailabilityDetailView.as_view(), name='availability_detail'),
+    path('working-hours/', WorkingHoursListView.as_view(), name='working_hours_list'),
+    path('working-hours/<int:pk>/', WorkingHoursDetailView.as_view(), name='working_hours_detail'),
+    path('closures/', BusinessClosureListView.as_view(), name='closure_list'),
+    path('closures/<int:pk>/', BusinessClosureDetailView.as_view(), name='closure_detail'),
     
     # Include router URLs
     path('', include(router.urls)),

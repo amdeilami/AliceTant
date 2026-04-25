@@ -16,6 +16,7 @@ from django.db.models import Q
 from AliceTant.models import Business, Provider
 from AliceTant.serializers.business_serializers import BusinessSerializer
 from AliceTant.services.business_service import BusinessService
+from AliceTant.views.auth_views import JWTAuthentication
 from AliceTant.exceptions.user_exceptions import (
     BusinessNotFoundError,
     UnauthorizedAccessError,
@@ -43,10 +44,11 @@ class BusinessViewSet(viewsets.ModelViewSet):
     """
     
     serializer_class = BusinessSerializer
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'summary', 'description']
+    search_fields = ['name', 'summary']
     filterset_fields = ['provider__user__username']
     ordering_fields = ['created_at', 'updated_at', 'name']
     ordering = ['-created_at']

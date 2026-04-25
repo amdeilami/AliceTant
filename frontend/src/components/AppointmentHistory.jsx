@@ -68,8 +68,8 @@ const AppointmentHistory = ({ className = '' }) => {
         const now = new Date();
 
         return [...appointments].sort((a, b) => {
-            const dateA = new Date(`${a.date}T${a.time}`);
-            const dateB = new Date(`${b.date}T${b.time}`);
+            const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+            const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
 
             const isUpcomingA = dateA >= now;
             const isUpcomingB = dateB >= now;
@@ -96,13 +96,11 @@ const AppointmentHistory = ({ className = '' }) => {
      */
     const getStatusStyle = (status) => {
         const styles = {
-            upcoming: 'bg-blue-100 text-blue-800 border-blue-200',
-            confirmed: 'bg-green-100 text-green-800 border-green-200',
-            completed: 'bg-gray-100 text-gray-800 border-gray-200',
-            cancelled: 'bg-red-100 text-red-800 border-red-200',
+            ACTIVE: 'bg-green-100 text-green-800 border-green-200',
+            CANCELLED: 'bg-red-100 text-red-800 border-red-200',
         };
 
-        return styles[status] || styles.upcoming;
+        return styles[status] || styles.ACTIVE;
     };
 
     /**
@@ -112,7 +110,7 @@ const AppointmentHistory = ({ className = '' }) => {
      * @returns {string} Formatted date
      */
     const formatDate = (dateString) => {
-        const date = new Date(dateString);
+        const date = new Date(dateString + 'T00:00:00');
         return date.toLocaleDateString('en-US', {
             weekday: 'short',
             year: 'numeric',
@@ -187,14 +185,14 @@ const AppointmentHistory = ({ className = '' }) => {
                             <div className="flex-1">
                                 <div className="flex flex-col sm:flex-row sm:items-center mb-2">
                                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-0">
-                                        {appointment.businessName}
+                                        {appointment.business_name}
                                     </h3>
                                     <span
                                         className={`self-start sm:ml-3 px-2 sm:px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyle(appointment.status)}`}
                                         role="status"
                                         aria-label={`Appointment status: ${appointment.status}`}
                                     >
-                                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                        {appointment.status === 'ACTIVE' ? 'Active' : appointment.status === 'CANCELLED' ? 'Cancelled' : appointment.status}
                                     </span>
                                 </div>
 
@@ -204,7 +202,7 @@ const AppointmentHistory = ({ className = '' }) => {
                                             <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
                                         <dt className="sr-only">Provider:</dt>
-                                        <dd>Provider: {appointment.providerName}</dd>
+                                        <dd>Provider: {appointment.business_name}</dd>
                                     </div>
 
                                     <div className="flex items-center">
@@ -213,7 +211,7 @@ const AppointmentHistory = ({ className = '' }) => {
                                         </svg>
                                         <dt className="sr-only">Date:</dt>
                                         <dd>
-                                            <time dateTime={appointment.date}>{formatDate(appointment.date)}</time>
+                                            <time dateTime={appointment.appointment_date}>{formatDate(appointment.appointment_date)}</time>
                                         </dd>
                                     </div>
 
@@ -223,7 +221,10 @@ const AppointmentHistory = ({ className = '' }) => {
                                         </svg>
                                         <dt className="sr-only">Time:</dt>
                                         <dd>
-                                            <time dateTime={appointment.time}>{formatTime(appointment.time)}</time>
+                                            <time dateTime={appointment.appointment_time}>
+                                                {formatTime(appointment.appointment_time)}
+                                                {appointment.end_time && ` — ${formatTime(appointment.end_time)}`}
+                                            </time>
                                         </dd>
                                     </div>
                                 </dl>

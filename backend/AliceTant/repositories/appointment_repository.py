@@ -15,6 +15,7 @@ from ..models import (
     Appointment,
     AppointmentCustomer,
     AppointmentStatus,
+    Availability,
     Business,
     Customer,
     Provider
@@ -42,78 +43,79 @@ class AppointmentRepository:
         customers: List[Customer],
         appointment_date: date,
         appointment_time: time,
+        end_time: time = None,
+        availability: 'Availability' = None,
         notes: str = ""
     ) -> Appointment:
         """
         Create a new appointment with customers.
-        
-        Creates an appointment entity with the specified information and links
-        the provided customers to it. Uses a database transaction to ensure
-        atomicity. Validates that at least one customer is provided.
-        
+
+        Creates an appointment entity and links customers. When an availability slot
+        is provided, validates capacity constraints (how many overlapping bookings
+        are allowed in that slot on the given date).
+
         Args:
-            business (Business): Business where appointment is scheduled
-            customers (List[Customer]): List of customers for this appointment (min 1)
-            appointment_date (date): Date of the appointment
-            appointment_time (time): Time of the appointment
-            notes (str): Optional notes about the appointment (default: "")
-        
+            business: Business where appointment is scheduled
+            customers: List of customers for this appointment (min 1)
+            appointment_date: Date of the appointment
+            appointment_time: Start time of the appointment
+            end_time: End time of the appointment (optional)
+            availability: The availability slot being booked against (optional)
+            notes: Optional notes about the appointment
+
         Returns:
-            Appointment: The newly created appointment instance with customers linked
-        
+            Appointment: The newly created appointment instance
+
         Raises:
-            InvalidAppointmentDataError: If validation fails (no customers, past date, etc.)
-            TimeSlotConflictError: If the time slot is already booked
+            InvalidAppointmentDataError: If validation fails
+            TimeSlotConflictError: If capacity is exceeded
         """
-        # Validate at least one customer
         if not customers or len(customers) == 0:
             raise InvalidAppointmentDataError("At least one customer is required for an appointment")
-        
-        # Validate appointment is in the future
+
         appointment_datetime = datetime.combine(appointment_date, appointment_time)
         if appointment_datetime <= datetime.now():
             raise InvalidAppointmentDataError(
                 f"Appointment date and time must be in the future "
                 f"(got {appointment_date} {appointment_time})"
             )
-        
-        # Check if time slot is available
-        if not AppointmentRepository.check_time_slot_available(
-            business, appointment_date, appointment_time
-        ):
-            raise TimeSlotConflictError(
-                f"Time slot {appointment_date} at {appointment_time} is already booked "
-                f"for business '{business.name}'"
+
+        # Capacity check: count active overlapping bookings for this availability on this date
+        if availability:
+            max_capacity = availability.capacity or 1
+            overlapping_count = AppointmentRepository.count_overlapping_bookings(
+                availability=availability,
+                appointment_date=appointment_date,
+                start_time=appointment_time,
+                end_time=end_time or appointment_time,
             )
-        
+            if overlapping_count >= max_capacity:
+                raise TimeSlotConflictError(
+                    f"This availability slot is fully booked for {appointment_date} "
+                    f"(capacity: {max_capacity}, current bookings: {overlapping_count})"
+                )
+
         try:
-            # Create the appointment
             appointment = Appointment.objects.create(
                 business=business,
                 appointment_date=appointment_date,
                 appointment_time=appointment_time,
+                end_time=end_time,
+                availability=availability,
                 status=AppointmentStatus.ACTIVE,
                 notes=notes
             )
-            
-            # Link customers to the appointment
+
             for customer in customers:
                 AppointmentCustomer.objects.create(
                     appointment=appointment,
                     customer=customer
                 )
-            
-            # Refresh to get the many-to-many relationship
+
             appointment.refresh_from_db()
             return appointment
-            
+
         except IntegrityError as e:
-            # This can happen if there's a race condition with the unique constraint
-            if 'unique_active_appointment_slot' in str(e):
-                raise TimeSlotConflictError(
-                    f"Time slot {appointment_date} at {appointment_time} is already booked "
-                    f"for business '{business.name}'"
-                )
             raise InvalidAppointmentDataError(f"Database integrity error: {str(e)}")
         except Exception as e:
             raise InvalidAppointmentDataError(f"Failed to create appointment: {str(e)}")
@@ -275,24 +277,46 @@ class AppointmentRepository:
         return appointment
     
     @staticmethod
+    def count_overlapping_bookings(
+        availability: 'Availability',
+        appointment_date: date,
+        start_time: time,
+        end_time: time,
+        exclude_appointment_id: int = None,
+    ) -> int:
+        """
+        Count how many ACTIVE appointments overlap with the given time range
+        on a specific date for a given availability slot.
+
+        Two bookings overlap if one starts before the other ends and
+        ends after the other starts.
+        """
+        qs = Appointment.objects.filter(
+            availability=availability,
+            appointment_date=appointment_date,
+            status=AppointmentStatus.ACTIVE,
+        )
+        if exclude_appointment_id:
+            qs = qs.exclude(id=exclude_appointment_id)
+
+        count = 0
+        for appt in qs:
+            appt_end = appt.end_time or appt.appointment_time
+            booking_end = end_time or start_time
+            # overlap: starts before other ends AND ends after other starts
+            if appt.appointment_time < booking_end and appt_end > start_time:
+                count += 1
+        return count
+
+    @staticmethod
     def check_time_slot_available(
         business: Business,
         appointment_date: date,
         appointment_time: time
     ) -> bool:
         """
-        Check if a time slot is available for booking.
-        
-        Verifies that no ACTIVE appointment exists for the given business
-        at the specified date and time.
-        
-        Args:
-            business (Business): The business to check availability for
-            appointment_date (date): Date to check
-            appointment_time (time): Time to check
-        
-        Returns:
-            bool: True if time slot is available, False if already booked
+        Legacy check — returns True if no exact-match active appointment exists.
+        Kept for backward compatibility; new code should use count_overlapping_bookings.
         """
         return not Appointment.objects.filter(
             business=business,

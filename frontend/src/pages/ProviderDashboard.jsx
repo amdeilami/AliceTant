@@ -28,6 +28,7 @@ const ProviderDashboard = () => {
     const [businesses, setBusinesses] = useState([]);
     const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(false);
     const [businessesError, setBusinessesError] = useState(null);
+    const [availabilityMap, setAvailabilityMap] = useState({});
 
     /**
      * Fetch current user data from the API on component mount.
@@ -44,24 +45,21 @@ const ProviderDashboard = () => {
                     throw new Error('No authentication token found');
                 }
 
-                // Add auth token to request headers
                 const response = await api.get('/auth/me/', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
 
-                // Normalize role to lowercase for consistency in frontend
                 const userData = {
                     ...response.data,
                     role: response.data.role?.toLowerCase()
                 };
 
-                // Update user data in auth context
                 updateUser(userData);
             } catch (error) {
                 console.error('Error fetching user data:', error);
-                setUserDataError(error.response?.data?.message || 'Failed to load user data');
+                setUserDataError(error.response?.data?.error || 'Failed to load user data');
             } finally {
                 setIsLoadingUserData(false);
             }
@@ -71,9 +69,11 @@ const ProviderDashboard = () => {
     }, [updateUser]);
 
     /**
-     * Fetch provider's businesses from the API on component mount.
+     * Fetch provider's businesses and their availability whenever the home tab is active.
      */
     useEffect(() => {
+        if (activeSection !== 'home') return;
+
         const fetchBusinesses = async () => {
             setIsLoadingBusinesses(true);
             setBusinessesError(null);
@@ -89,17 +89,34 @@ const ProviderDashboard = () => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                setBusinesses(response.data);
+                const fetchedBusinesses = response.data;
+                setBusinesses(fetchedBusinesses);
+
+                // Fetch availability for each business
+                const availMap = {};
+                await Promise.all(
+                    fetchedBusinesses.map(async (biz) => {
+                        try {
+                            const avRes = await api.get(`/availability/?business_id=${biz.id}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            availMap[biz.id] = avRes.data;
+                        } catch {
+                            availMap[biz.id] = [];
+                        }
+                    })
+                );
+                setAvailabilityMap(availMap);
             } catch (error) {
                 console.error('Error fetching businesses:', error);
-                setBusinessesError(error.response?.data?.message || 'Failed to load businesses');
+                setBusinessesError(error.response?.data?.error || 'Failed to load businesses');
             } finally {
                 setIsLoadingBusinesses(false);
             }
         };
 
         fetchBusinesses();
-    }, []);
+    }, [activeSection]);
 
     /**
      * Handle navigation between dashboard sections.
@@ -155,17 +172,62 @@ const ProviderDashboard = () => {
                                 </div>
                             </div>
                         ) : businessesError ? (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-yellow-700">Business data will be available once the business management feature is implemented.</p>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-red-700">{businessesError}</p>
                             </div>
-                        ) : (
+                        ) : businesses.length === 0 ? (
                             <div className="bg-white rounded-lg shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Businesses</h3>
-                                {businesses.length > 0 ? (
-                                    <p className="text-gray-600">You have {businesses.length} business(es)</p>
-                                ) : (
-                                    <p className="text-gray-600">No businesses yet. Create your first business to get started!</p>
-                                )}
+                                <p className="text-gray-600">No businesses yet. Create your first business to get started!</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Your Businesses ({businesses.length})</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {businesses.map((biz) => {
+                                        const slots = availabilityMap[biz.id] || [];
+                                        const uniqueDays = [...new Set(slots.map(s => s.day_of_week))];
+                                        return (
+                                            <div key={biz.id} className="bg-white rounded-lg shadow p-5 border border-gray-100">
+                                                <div className="flex items-start gap-4">
+                                                    {biz.logo_url ? (
+                                                        <img src={biz.logo_url} alt={biz.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                            <svg className="w-6 h-6 text-indigo-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-semibold text-gray-900 truncate">{biz.name}</h4>
+                                                        {biz.summary && (
+                                                            <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{biz.summary}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 pt-3 border-t border-gray-100">
+                                                    {slots.length > 0 ? (
+                                                        <div className="flex items-center text-sm text-green-700">
+                                                            <svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            <span>{slots.length} slot{slots.length !== 1 ? 's' : ''} across {uniqueDays.length} day{uniqueDays.length !== 1 ? 's' : ''}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center text-sm text-amber-700">
+                                                            <svg className="w-4 h-4 mr-1.5 flex-shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                            </svg>
+                                                            <span>No availability set — </span>
+                                                            <button onClick={() => handleSectionChange('availability')} className="ml-1 underline text-amber-800 hover:text-amber-900">add slots</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

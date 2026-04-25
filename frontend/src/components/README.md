@@ -23,6 +23,13 @@ Wrapper component that provides consistent page structure.
 - Ensures proper flex layout for sticky footer
 - Used by all page components
 
+### ThemeToggle.jsx
+Floating dark/light theme toggle button.
+- Fixed position in the bottom-right corner of every page
+- Visible regardless of authentication status
+- Shows sun icon in dark mode, moon icon in light mode
+- Uses ThemeContext for state management
+
 ## Usage
 
 ```jsx

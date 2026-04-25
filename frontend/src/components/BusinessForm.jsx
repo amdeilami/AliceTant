@@ -14,7 +14,7 @@ import { useState } from 'react';
 const BusinessForm = ({ business, onSubmit, onCancel }) => {
     const [formData, setFormData] = useState({
         name: business?.name || '',
-        description: business?.description || '',
+        summary: business?.summary || '',
         phone: business?.phone || '',
         email: business?.email || '',
         address: business?.address || ''
@@ -35,9 +35,11 @@ const BusinessForm = ({ business, onSubmit, onCancel }) => {
             newErrors.name = 'Business name is required';
         }
 
-        // Description validation
-        if (!formData.description.trim()) {
-            newErrors.description = 'Description is required';
+        // Summary validation
+        if (!formData.summary.trim()) {
+            newErrors.summary = 'Summary is required';
+        } else if (formData.summary.length > 4096) {
+            newErrors.summary = 'Summary must be 4096 characters or less';
         }
 
         // Phone validation
@@ -155,24 +157,30 @@ const BusinessForm = ({ business, onSubmit, onCancel }) => {
                     )}
                 </div>
 
-                {/* Description */}
+                {/* Summary */}
                 <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                        Description *
+                    <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-1">
+                        Summary *
                     </label>
                     <textarea
-                        id="description"
-                        name="description"
-                        value={formData.description}
+                        id="summary"
+                        name="summary"
+                        value={formData.summary}
                         onChange={handleChange}
                         rows="4"
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.description ? 'border-red-500' : 'border-gray-300'
+                        maxLength={4096}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.summary ? 'border-red-500' : 'border-gray-300'
                             }`}
                         placeholder="Describe your business and services..."
                     />
-                    {errors.description && (
-                        <p className="text-red-600 text-sm mt-1">{errors.description}</p>
-                    )}
+                    <div className="flex justify-between mt-1">
+                        {errors.summary ? (
+                            <p className="text-red-600 text-sm">{errors.summary}</p>
+                        ) : <span />}
+                        <span className={`text-xs ${formData.summary.length > 3686 ? 'text-amber-600' : 'text-gray-400'}`}>
+                            {formData.summary.length}/4096
+                        </span>
+                    </div>
                 </div>
 
                 {/* Phone */}

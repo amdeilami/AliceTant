@@ -19,9 +19,8 @@ class Business(models.Model):
     Attributes:
         provider (Provider): Foreign key to the Provider who owns this business
         name (str): Name of the business/service
-        summary (str): Brief description of the business (max 512 characters)
+        summary (str): Description / summary of the business (max 4096 characters)
         logo (ImageField): Business logo image file
-        description (str): Detailed description of the business
         phone (str): Contact phone number for the business
         email (str): Contact email for the business
         address (str): Physical address of the business
@@ -39,20 +38,16 @@ class Business(models.Model):
         max_length=200,
         help_text="Name of the business/service"
     )
-    summary = models.CharField(
-        max_length=512,
+    summary = models.TextField(
+        max_length=4096,
         blank=True,
-        help_text="Brief description of the business (max 512 characters)"
+        help_text="Description / summary of the business (max 4096 characters)"
     )
     logo = models.ImageField(
         upload_to='business_logos/',
         blank=True,
         null=True,
         help_text="Business logo image"
-    )
-    description = models.TextField(
-        max_length=2000,
-        help_text="Detailed description of the business"
     )
     phone = models.CharField(
         max_length=20,

@@ -9,7 +9,7 @@ between the API layer and the repository layer.
 from typing import List, Dict, Optional
 from datetime import date, time, datetime
 
-from ..models import Appointment, Business, Customer, Provider
+from ..models import Appointment, Business, Customer, Provider, Availability
 from ..repositories.appointment_repository import AppointmentRepository
 from ..repositories.business_repository import BusinessRepository
 from ..exceptions.user_exceptions import (
@@ -35,39 +35,44 @@ class AppointmentService:
         customer_ids: List[int],
         appointment_date: date,
         appointment_time: time,
+        end_time: time = None,
+        availability_id: int = None,
         notes: str = ""
     ) -> Appointment:
         """
-        Book an appointment with validation and conflict checking.
-        
-        Creates a new appointment after validating business exists, customers exist,
-        appointment is in the future, and no time slot conflict exists.
-        
+        Book an appointment with validation and capacity checking.
+
+        If availability_id is provided, validates that:
+          - The availability slot exists and belongs to the business
+          - The requested time window falls within the availability window
+          - The availability's capacity allows another booking
+
         Args:
-            business_id (int): ID of the business to book with
-            customer_ids (List[int]): List of customer IDs for this appointment (min 1)
-            appointment_date (date): Date of the appointment
-            appointment_time (time): Time of the appointment
-            notes (str): Optional notes about the appointment (default: "")
-        
+            business_id: ID of the business to book with
+            customer_ids: List of customer IDs (min 1)
+            appointment_date: Date of the appointment
+            appointment_time: Start time of the appointment
+            end_time: End time of the appointment (optional, defaults to availability end)
+            availability_id: ID of the availability slot to book against (optional)
+            notes: Optional notes
+
         Returns:
             Appointment: The newly created appointment instance
-        
+
         Raises:
             BusinessNotFoundError: If business doesn't exist
-            InvalidAppointmentDataError: If validation fails (no customers, past date, etc.)
-            TimeSlotConflictError: If the time slot is already booked
+            InvalidAppointmentDataError: If validation fails
+            TimeSlotConflictError: If capacity exceeded
         """
-        # Validate input parameters
         if not customer_ids or len(customer_ids) == 0:
             raise InvalidAppointmentDataError("At least one customer is required for an appointment")
-        
+
         if not appointment_date:
             raise InvalidAppointmentDataError("Appointment date is required")
-        
+
         if not appointment_time:
             raise InvalidAppointmentDataError("Appointment time is required")
-        
+
         # Validate appointment is in the future
         appointment_datetime = datetime.combine(appointment_date, appointment_time)
         if appointment_datetime <= datetime.now():
@@ -75,10 +80,50 @@ class AppointmentService:
                 f"Appointment date and time must be in the future "
                 f"(got {appointment_date} {appointment_time})"
             )
-        
-        # Get business (will raise BusinessNotFoundError if not found)
+
+        # Get business
         business = BusinessRepository.get_business_by_id(business_id)
-        
+
+        # Resolve availability slot
+        availability = None
+        if availability_id:
+            try:
+                availability = Availability.objects.get(id=availability_id)
+            except Availability.DoesNotExist:
+                raise InvalidAppointmentDataError(f"Availability slot {availability_id} not found")
+
+            if availability.business_id != business.id:
+                raise InvalidAppointmentDataError("Availability slot does not belong to this business")
+
+            # Validate the appointment date matches the availability date
+            if availability.date != appointment_date:
+                raise InvalidAppointmentDataError(
+                    f"Appointment date {appointment_date} does not match "
+                    f"availability date {availability.date}"
+                )
+
+            # Validate the requested time falls within the availability window
+            if appointment_time < availability.start_time:
+                raise InvalidAppointmentDataError(
+                    f"Appointment start time {appointment_time} is before "
+                    f"availability start {availability.start_time}"
+                )
+
+            effective_end = end_time or appointment_time
+            if effective_end > availability.end_time:
+                raise InvalidAppointmentDataError(
+                    f"Appointment end time {effective_end} is after "
+                    f"availability end {availability.end_time}"
+                )
+
+            # Default end_time to availability end if not provided
+            if not end_time:
+                end_time = availability.end_time
+
+        # Validate end_time > start_time when provided
+        if end_time and end_time <= appointment_time:
+            raise InvalidAppointmentDataError("Appointment end time must be after start time")
+
         # Get customers and validate they exist
         customers = []
         for customer_id in customer_ids:
@@ -87,13 +132,14 @@ class AppointmentService:
                 customers.append(customer)
             except Customer.DoesNotExist:
                 raise InvalidAppointmentDataError(f"Customer with ID {customer_id} not found")
-        
-        # Delegate to repository for creation (it will handle time slot conflict checking)
+
         return AppointmentRepository.create_appointment(
             business=business,
             customers=customers,
             appointment_date=appointment_date,
             appointment_time=appointment_time,
+            end_time=end_time,
+            availability=availability,
             notes=notes
         )
     
