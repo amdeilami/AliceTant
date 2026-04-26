@@ -5,6 +5,8 @@ This module defines the custom User model that extends Django's AbstractUser
 to include role-based differentiation between Providers and Customers.
 """
 
+import random
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -71,12 +73,32 @@ class User(AbstractUser):
         help_text="Timestamp when the user was last modified"
     )
 
+    reference_id = models.PositiveIntegerField(
+        unique=True,
+        editable=False,
+        null=True,
+        help_text="Unique 8-digit reference ID for display"
+    )
+
     avatar = models.ImageField(
         upload_to='avatars/',
         null=True,
         blank=True,
         help_text="User's profile picture"
     )
+
+    def save(self, *args, **kwargs):
+        if not self.reference_id:
+            self.reference_id = self._generate_unique_reference_id()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_unique_reference_id():
+        from AliceTant.models.user import User
+        while True:
+            ref_id = random.randint(10000000, 99999999)
+            if not User.objects.filter(reference_id=ref_id).exists():
+                return ref_id
     
     class Meta:
         """

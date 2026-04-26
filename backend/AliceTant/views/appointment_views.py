@@ -532,6 +532,95 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True, methods=['post'], url_path='propose-modification')
+    def propose_modification(self, request, pk=None):
+        """
+        Propose a modification to an appointment.
+
+        Both customers and providers can propose. The *other* party must approve.
+        Body: { appointment_date, appointment_time, end_time?, notes? }
+        """
+        try:
+            appointment_id = int(pk)
+            user = request.user
+
+            new_date_str = request.data.get('appointment_date')
+            new_time_str = request.data.get('appointment_time')
+            if not new_date_str or not new_time_str:
+                return Response(
+                    {'error': 'appointment_date and appointment_time are required'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            new_date = datetime.strptime(new_date_str, '%Y-%m-%d').date()
+            new_time = datetime.strptime(new_time_str, '%H:%M').time()
+
+            new_end_time = None
+            end_time_str = request.data.get('end_time')
+            if end_time_str:
+                new_end_time = datetime.strptime(end_time_str, '%H:%M').time()
+
+            new_notes = request.data.get('notes', '')
+
+            if user.is_customer():
+                customer = Customer.objects.get(user=user)
+                mod = AppointmentService.propose_modification_by_customer(
+                    appointment_id, customer,
+                    new_date, new_time, new_end_time, new_notes,
+                )
+            elif user.is_provider():
+                provider = Provider.objects.get(user=user)
+                mod = AppointmentService.propose_modification_by_provider(
+                    appointment_id, provider,
+                    new_date, new_time, new_end_time, new_notes,
+                )
+            else:
+                return Response({'error': 'Invalid role'}, status=status.HTTP_403_FORBIDDEN)
+
+            from ..serializers.appointment_serializers import PendingModificationSerializer
+            return Response(PendingModificationSerializer(mod).data, status=status.HTTP_201_CREATED)
+
+        except (Customer.DoesNotExist, Provider.DoesNotExist):
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        except (ValueError, TypeError) as e:
+            return Response({'error': f'Invalid data: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+        except InvalidAppointmentDataError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except UnauthorizedAccessError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='respond-modification')
+    def respond_modification(self, request, pk=None):
+        """
+        Approve or reject the pending modification on an appointment.
+
+        Body: { modification_id: int, approve: bool }
+        """
+        try:
+            modification_id = request.data.get('modification_id')
+            approve = request.data.get('approve')
+
+            if modification_id is None or approve is None:
+                return Response(
+                    {'error': 'modification_id and approve (bool) are required'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            appointment = AppointmentService.respond_to_modification(
+                int(modification_id), request.user, bool(approve),
+            )
+            serializer = self.get_serializer(appointment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except InvalidAppointmentDataError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except UnauthorizedAccessError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # Legacy views for backward compatibility (deprecated)
 class AppointmentListView(viewsets.ReadOnlyModelViewSet):

@@ -15,6 +15,7 @@ from ..models import (
     Appointment,
     AppointmentCustomer,
     AppointmentStatus,
+    PendingModification,
     Availability,
     Business,
     Customer,
@@ -80,22 +81,12 @@ class AppointmentRepository:
                 f"(got {appointment_date} {appointment_time})"
             )
 
-        # Capacity check: count active overlapping bookings for this availability on this date
-        if availability:
-            max_capacity = availability.capacity or 1
-            overlapping_count = AppointmentRepository.count_overlapping_bookings(
-                availability=availability,
-                appointment_date=appointment_date,
-                start_time=appointment_time,
-                end_time=end_time or appointment_time,
-            )
-            if overlapping_count >= max_capacity:
-                raise TimeSlotConflictError(
-                    f"This availability slot is fully booked for {appointment_date} "
-                    f"(capacity: {max_capacity}, current bookings: {overlapping_count})"
-                )
-
         try:
+            # INSERT FIRST, then verify capacity.
+            # This avoids the check-then-act race condition where two concurrent
+            # requests both see "0 bookings" and both proceed to insert.
+            # Inside @transaction.atomic, if the post-insert count exceeds
+            # capacity the exception rolls back the entire transaction.
             appointment = Appointment.objects.create(
                 business=business,
                 appointment_date=appointment_date,
@@ -112,9 +103,26 @@ class AppointmentRepository:
                     customer=customer
                 )
 
+            # Post-insert capacity verification (includes the row we just inserted)
+            if availability:
+                max_capacity = availability.capacity or 1
+                overlapping_count = AppointmentRepository.count_overlapping_bookings(
+                    availability=availability,
+                    appointment_date=appointment_date,
+                    start_time=appointment_time,
+                    end_time=end_time or appointment_time,
+                )
+                if overlapping_count > max_capacity:
+                    raise TimeSlotConflictError(
+                        f"This availability slot is fully booked for {appointment_date} "
+                        f"(capacity: {max_capacity}, current bookings: {overlapping_count - 1})"
+                    )
+
             appointment.refresh_from_db()
             return appointment
 
+        except TimeSlotConflictError:
+            raise
         except IntegrityError as e:
             raise InvalidAppointmentDataError(f"Database integrity error: {str(e)}")
         except Exception as e:
@@ -324,3 +332,98 @@ class AppointmentRepository:
             appointment_time=appointment_time,
             status=AppointmentStatus.ACTIVE
         ).exists()
+
+    # ── Pending modification operations ─────────────────────────────
+
+    @staticmethod
+    @transaction.atomic
+    def create_pending_modification(
+        appointment: Appointment,
+        proposed_by: str,
+        proposed_by_user_id: int,
+        new_date: date,
+        new_time: time,
+        new_end_time: time = None,
+        new_notes: str = "",
+    ) -> PendingModification:
+        """Create a pending modification and set appointment status to PENDING_MOD."""
+        # Expire any older pending mods for this appointment
+        PendingModification.objects.filter(
+            appointment=appointment,
+            status=PendingModification.ModificationStatus.PENDING,
+        ).update(
+            status=PendingModification.ModificationStatus.REJECTED,
+            resolved_at=datetime.now(),
+        )
+
+        mod = PendingModification.objects.create(
+            appointment=appointment,
+            proposed_by=proposed_by,
+            proposed_by_user_id=proposed_by_user_id,
+            new_date=new_date,
+            new_time=new_time,
+            new_end_time=new_end_time,
+            new_notes=new_notes,
+        )
+        appointment.status = AppointmentStatus.PENDING_MODIFICATION
+        appointment.save(update_fields=['status', 'updated_at'])
+        return mod
+
+    @staticmethod
+    @transaction.atomic
+    def approve_modification(modification_id: int) -> Appointment:
+        """Approve a pending modification, applying the new values."""
+        try:
+            mod = PendingModification.objects.select_related('appointment').get(
+                id=modification_id,
+                status=PendingModification.ModificationStatus.PENDING,
+            )
+        except PendingModification.DoesNotExist:
+            raise InvalidAppointmentDataError(
+                f"Pending modification {modification_id} not found or already resolved"
+            )
+
+        appt = mod.appointment
+        appt.appointment_date = mod.new_date
+        appt.appointment_time = mod.new_time
+        appt.end_time = mod.new_end_time
+        if mod.new_notes:
+            appt.notes = mod.new_notes
+        appt.status = AppointmentStatus.ACTIVE
+        appt.save()
+
+        mod.status = PendingModification.ModificationStatus.APPROVED
+        mod.resolved_at = datetime.now()
+        mod.save(update_fields=['status', 'resolved_at'])
+        return appt
+
+    @staticmethod
+    @transaction.atomic
+    def reject_modification(modification_id: int) -> Appointment:
+        """Reject a pending modification, restoring appointment to ACTIVE."""
+        try:
+            mod = PendingModification.objects.select_related('appointment').get(
+                id=modification_id,
+                status=PendingModification.ModificationStatus.PENDING,
+            )
+        except PendingModification.DoesNotExist:
+            raise InvalidAppointmentDataError(
+                f"Pending modification {modification_id} not found or already resolved"
+            )
+
+        appt = mod.appointment
+        appt.status = AppointmentStatus.ACTIVE
+        appt.save(update_fields=['status', 'updated_at'])
+
+        mod.status = PendingModification.ModificationStatus.REJECTED
+        mod.resolved_at = datetime.now()
+        mod.save(update_fields=['status', 'resolved_at'])
+        return appt
+
+    @staticmethod
+    def get_pending_modification_for_appointment(appointment_id: int):
+        """Return the latest PENDING modification for an appointment, or None."""
+        return PendingModification.objects.filter(
+            appointment_id=appointment_id,
+            status=PendingModification.ModificationStatus.PENDING,
+        ).order_by('-created_at').first()

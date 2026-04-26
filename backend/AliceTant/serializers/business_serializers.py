@@ -37,6 +37,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = [
             'id',
+            'reference_id',
             'name',
             'summary',
             'logo',
@@ -48,7 +49,7 @@ class BusinessSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'provider_name', 'logo_url']
+        read_only_fields = ['id', 'reference_id', 'created_at', 'updated_at', 'provider_name', 'logo_url']
     
     def get_logo_url(self, obj):
         """

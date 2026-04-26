@@ -9,7 +9,7 @@ between the API layer and the repository layer.
 from typing import List, Dict, Optional
 from datetime import date, time, datetime
 
-from ..models import Appointment, Business, Customer, Provider, Availability
+from ..models import Appointment, AppointmentStatus, Business, Customer, Provider, Availability
 from ..repositories.appointment_repository import AppointmentRepository
 from ..repositories.business_repository import BusinessRepository
 from ..exceptions.user_exceptions import (
@@ -421,3 +421,107 @@ class AppointmentService:
         return AppointmentRepository.check_time_slot_available(
             business, appointment_date, appointment_time
         )
+
+    # ── Modification workflow ───────────────────────────────────────
+
+    @staticmethod
+    def propose_modification_by_customer(
+        appointment_id: int,
+        customer: Customer,
+        new_date: date,
+        new_time: time,
+        new_end_time: time = None,
+        new_notes: str = "",
+    ):
+        """Customer proposes a modification; provider must approve."""
+        appointment = AppointmentRepository.get_appointment_by_id(appointment_id)
+
+        if appointment.status not in (AppointmentStatus.ACTIVE, AppointmentStatus.PENDING_MODIFICATION):
+            raise InvalidAppointmentDataError("Only active appointments can be modified")
+
+        if not appointment.customers.filter(user_id=customer.user_id).exists():
+            raise UnauthorizedAccessError("You are not part of this appointment")
+
+        return AppointmentRepository.create_pending_modification(
+            appointment=appointment,
+            proposed_by='CUSTOMER',
+            proposed_by_user_id=customer.user_id,
+            new_date=new_date,
+            new_time=new_time,
+            new_end_time=new_end_time,
+            new_notes=new_notes,
+        )
+
+    @staticmethod
+    def propose_modification_by_provider(
+        appointment_id: int,
+        provider: Provider,
+        new_date: date,
+        new_time: time,
+        new_end_time: time = None,
+        new_notes: str = "",
+    ):
+        """Provider proposes a modification; customer must approve."""
+        appointment = AppointmentRepository.get_appointment_by_id(appointment_id)
+
+        if appointment.status not in (AppointmentStatus.ACTIVE, AppointmentStatus.PENDING_MODIFICATION):
+            raise InvalidAppointmentDataError("Only active appointments can be modified")
+
+        if not BusinessRepository.verify_ownership(appointment.business, provider):
+            raise UnauthorizedAccessError("You don't own this appointment's business")
+
+        return AppointmentRepository.create_pending_modification(
+            appointment=appointment,
+            proposed_by='PROVIDER',
+            proposed_by_user_id=provider.user_id,
+            new_date=new_date,
+            new_time=new_time,
+            new_end_time=new_end_time,
+            new_notes=new_notes,
+        )
+
+    @staticmethod
+    def respond_to_modification(modification_id: int, user, approve: bool):
+        """
+        Approve or reject a pending modification.
+
+        The person who proposed the change cannot approve it themselves;
+        the *other* party must approve.
+        """
+        from ..models import PendingModification as PM
+        try:
+            mod = PM.objects.select_related('appointment', 'appointment__business__provider').get(
+                id=modification_id,
+                status=PM.ModificationStatus.PENDING,
+            )
+        except PM.DoesNotExist:
+            raise InvalidAppointmentDataError("Pending modification not found or already resolved")
+
+        appt = mod.appointment
+
+        # Determine if caller is the "other" party
+        if mod.proposed_by == 'CUSTOMER':
+            # Only the provider of this business may approve
+            if not user.is_provider():
+                raise UnauthorizedAccessError("Only the provider can respond to customer modifications")
+            try:
+                provider = Provider.objects.get(user=user)
+            except Provider.DoesNotExist:
+                raise UnauthorizedAccessError("Provider profile not found")
+            if appt.business.provider_id != provider.id:
+                raise UnauthorizedAccessError("You don't own this appointment's business")
+        else:
+            # mod proposed by provider → only a customer on this appointment may approve
+            if not user.is_customer():
+                raise UnauthorizedAccessError("Only the customer can respond to provider modifications")
+            try:
+                customer = Customer.objects.get(user=user)
+            except Customer.DoesNotExist:
+                raise UnauthorizedAccessError("Customer profile not found")
+            if not appt.customers.filter(id=customer.id).exists():
+                raise UnauthorizedAccessError("You are not part of this appointment")
+
+        if approve:
+            return AppointmentRepository.approve_modification(modification_id)
+        else:
+            return AppointmentRepository.reject_modification(modification_id)

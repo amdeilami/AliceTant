@@ -7,7 +7,7 @@ from .provider import Provider
 from .customer import Customer
 from .business import Business
 from .availability import Availability
-from .appointment import Appointment, AppointmentCustomer, AppointmentStatus
+from .appointment import Appointment, AppointmentCustomer, AppointmentStatus, PendingModification
 from .working_hours import WorkingHours, BusinessClosure
 
 __all__ = [
@@ -20,6 +20,7 @@ __all__ = [
     'Appointment',
     'AppointmentCustomer',
     'AppointmentStatus',
+    'PendingModification',
     'WorkingHours',
     'BusinessClosure',
 ]

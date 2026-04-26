@@ -1,9 +1,11 @@
 """
 Appointment models for AliceTant application.
 
-This module defines the Appointment and AppointmentCustomer models which
-handle appointment scheduling between customers and businesses.
+This module defines the Appointment, AppointmentCustomer, and PendingModification
+models which handle appointment scheduling between customers and businesses.
 """
+
+import random
 
 from django.db import models
 from django.utils import timezone
@@ -14,85 +16,59 @@ from .availability import Availability
 
 
 class AppointmentStatus(models.TextChoices):
-    """
-    Enumeration of possible appointment statuses.
-    
-    Attributes:
-        ACTIVE: Appointment is scheduled and active
-        CANCELLED: Appointment has been cancelled (soft delete)
-    """
     ACTIVE = 'ACTIVE', 'Active'
     CANCELLED = 'CANCELLED', 'Cancelled'
+    PENDING_MODIFICATION = 'PENDING_MOD', 'Pending Modification'
 
 
 class Appointment(models.Model):
-    """
-    Appointment model representing a scheduled booking.
-    
-    Connects one or more customers with a specific business at a scheduled
-    date and time. Supports soft deletion through status field.
-    
-    Attributes:
-        business (Business): Foreign key to the Business being booked
-        customers (ManyToManyField): Customers associated with this appointment
-        appointment_date (date): Date of the appointment
-        appointment_time (time): Time of the appointment
-        status (str): Current status (ACTIVE or CANCELLED)
-        notes (str): Optional notes about the appointment
-        created_at (datetime): Timestamp when appointment was created
-        updated_at (datetime): Timestamp when appointment was last updated
-    """
-    
     business = models.ForeignKey(
         Business,
         on_delete=models.CASCADE,
         related_name='appointments',
-        help_text="Business where the appointment is scheduled"
     )
     customers = models.ManyToManyField(
         Customer,
         through='AppointmentCustomer',
         related_name='appointments',
-        help_text="Customers associated with this appointment"
     )
-    appointment_date = models.DateField(
-        help_text="Date of the appointment"
-    )
-    appointment_time = models.TimeField(
-        help_text="Start time of the appointment"
-    )
-    end_time = models.TimeField(
-        help_text="End time of the appointment",
-        null=True,
-        blank=True,
-    )
+    appointment_date = models.DateField()
+    appointment_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
     availability = models.ForeignKey(
         Availability,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='bookings',
-        help_text="The availability slot this appointment was booked against"
     )
     status = models.CharField(
-        max_length=10,
+        max_length=12,
         choices=AppointmentStatus.choices,
         default=AppointmentStatus.ACTIVE,
-        help_text="Current status of the appointment"
     )
-    notes = models.TextField(
-        blank=True,
-        help_text="Optional notes about the appointment"
+    reference_id = models.PositiveIntegerField(
+        unique=True,
+        editable=False,
+        null=True,
+        help_text="Unique 8-digit reference ID for display"
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="Timestamp when appointment was created"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        help_text="Timestamp when appointment was last updated"
-    )
-    
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.reference_id:
+            self.reference_id = self._generate_unique_reference_id()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_unique_reference_id():
+        while True:
+            ref_id = random.randint(10000000, 99999999)
+            if not Appointment.objects.filter(reference_id=ref_id).exists():
+                return ref_id
+
     class Meta:
         db_table = 'alicetant_appointment'
         verbose_name = 'Appointment'
@@ -103,29 +79,54 @@ class Appointment(models.Model):
             models.Index(fields=['appointment_date', 'status']),
             models.Index(fields=['availability', 'appointment_date', 'status']),
         ]
-    
+
     def is_upcoming(self):
-        """
-        Check if appointment is in the future and active.
-        
-        Returns:
-            bool: True if appointment is upcoming and active, False otherwise
-        """
-        appointment_datetime = datetime.combine(
-            self.appointment_date,
-            self.appointment_time
-        )
-        now = datetime.now()
-        return appointment_datetime > now and self.status == AppointmentStatus.ACTIVE
-    
+        appointment_datetime = datetime.combine(self.appointment_date, self.appointment_time)
+        return appointment_datetime > datetime.now() and self.status == AppointmentStatus.ACTIVE
+
     def __str__(self):
-        """
-        String representation of the Appointment.
-        
-        Returns:
-            str: Business name, date, time, and status
-        """
         return f"{self.business.name} - {self.appointment_date} {self.appointment_time} ({self.status})"
+
+
+class PendingModification(models.Model):
+    """Stores proposed changes to an appointment that require confirmation."""
+
+    class ProposedBy(models.TextChoices):
+        CUSTOMER = 'CUSTOMER', 'Customer'
+        PROVIDER = 'PROVIDER', 'Provider'
+
+    class ModificationStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name='pending_modifications',
+    )
+    proposed_by = models.CharField(max_length=10, choices=ProposedBy.choices)
+    proposed_by_user_id = models.IntegerField(
+        help_text="User ID of whoever proposed the change"
+    )
+    new_date = models.DateField()
+    new_time = models.TimeField()
+    new_end_time = models.TimeField(null=True, blank=True)
+    new_notes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=ModificationStatus.choices,
+        default=ModificationStatus.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'alicetant_pending_modification'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Modification #{self.id} for Appointment #{self.appointment_id} ({self.status})"
 
 
 class AppointmentCustomer(models.Model):

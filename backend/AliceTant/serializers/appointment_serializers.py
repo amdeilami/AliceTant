@@ -7,7 +7,18 @@ appointment information.
 
 from rest_framework import serializers
 from datetime import datetime, date
-from AliceTant.models import Appointment, Customer
+from AliceTant.models import Appointment, Customer, PendingModification
+
+
+class PendingModificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PendingModification
+        fields = [
+            'id', 'appointment', 'proposed_by', 'proposed_by_user_id',
+            'new_date', 'new_time', 'new_end_time', 'new_notes',
+            'status', 'created_at', 'resolved_at',
+        ]
+        read_only_fields = fields
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -36,11 +47,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
     customer_names = serializers.SerializerMethodField()
     customer_emails = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
+    pending_modification = serializers.SerializerMethodField()
     
     class Meta:
         model = Appointment
         fields = [
             'id',
+            'reference_id',
             'business',
             'business_name',
             'customers',
@@ -53,15 +66,18 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'status',
             'notes',
             'is_upcoming',
+            'pending_modification',
             'created_at',
             'updated_at'
         ]
         read_only_fields = [
             'id',
+            'reference_id',
             'status',
             'business_name',
             'customer_names',
             'is_upcoming',
+            'pending_modification',
             'created_at',
             'updated_at'
         ]
@@ -101,6 +117,14 @@ class AppointmentSerializer(serializers.ModelSerializer):
             bool: True if appointment is in the future and active
         """
         return obj.is_upcoming()
+
+    def get_pending_modification(self, obj):
+        mod = obj.pending_modifications.filter(
+            status=PendingModification.ModificationStatus.PENDING
+        ).order_by('-created_at').first()
+        if mod:
+            return PendingModificationSerializer(mod).data
+        return None
     
     def validate_appointment_date(self, value):
         """

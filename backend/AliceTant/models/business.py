@@ -5,6 +5,8 @@ This module defines the Business model which represents service offerings
 created by providers that customers can search and book.
 """
 
+import random
+
 from django.db import models
 from .provider import Provider
 
@@ -59,6 +61,12 @@ class Business(models.Model):
     address = models.TextField(
         help_text="Physical address of the business"
     )
+    reference_id = models.PositiveIntegerField(
+        unique=True,
+        editable=False,
+        null=True,
+        help_text="Unique 8-digit reference ID for display"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Timestamp when the business was created"
@@ -67,7 +75,19 @@ class Business(models.Model):
         auto_now=True,
         help_text="Timestamp when the business was last updated"
     )
-    
+
+    def save(self, *args, **kwargs):
+        if not self.reference_id:
+            self.reference_id = self._generate_unique_reference_id()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_unique_reference_id():
+        while True:
+            ref_id = random.randint(10000000, 99999999)
+            if not Business.objects.filter(reference_id=ref_id).exists():
+                return ref_id
+
     class Meta:
         db_table = 'alicetant_business'
         verbose_name = 'Business'

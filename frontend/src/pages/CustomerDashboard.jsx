@@ -18,6 +18,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import SearchBar from '../components/SearchBar';
 import AppointmentHistory from '../components/AppointmentHistory';
 import ProfileSection from '../components/ProfileSection';
+import { maskReferenceId } from '../utils/formatId';
 import api from '../utils/api';
 
 const CustomerDashboard = () => {
@@ -149,6 +150,7 @@ const CustomerDashboard = () => {
                                             )}
                                             <div className="min-w-0 flex-1">
                                                 <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">{biz.name}</h3>
+                                                <span className="font-mono text-xs text-gray-400 dark:text-gray-500" title={`Ref: ${biz.reference_id}`}>#{maskReferenceId(biz.reference_id)}</span>
                                                 {biz.summary && (
                                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{biz.summary}</p>
                                                 )}

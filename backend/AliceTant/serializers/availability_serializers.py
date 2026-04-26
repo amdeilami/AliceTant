@@ -13,14 +13,23 @@ class AvailabilitySerializer(serializers.ModelSerializer):
     """
     Serializer for Availability model.
     """
-    
+    booking_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Availability
         fields = [
             'id', 'business', 'date', 'day_of_week', 'start_time', 'end_time',
-            'capacity', 'recurring_group', 'created_at', 'updated_at',
+            'capacity', 'recurring_group', 'booking_count', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'day_of_week', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'day_of_week', 'booking_count', 'created_at', 'updated_at']
+
+    def get_booking_count(self, obj):
+        """Count active bookings for this availability slot on its date."""
+        from AliceTant.models import AppointmentStatus
+        return obj.bookings.filter(
+            appointment_date=obj.date,
+            status=AppointmentStatus.ACTIVE,
+        ).count()
     
     def validate(self, data):
         start_time = data.get('start_time')

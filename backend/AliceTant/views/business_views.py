@@ -112,7 +112,6 @@ class BusinessViewSet(viewsets.ModelViewSet):
                 name=data.get('name', ''),
                 summary=data.get('summary', ''),
                 logo=logo,
-                description=data.get('description', ''),
                 phone=data.get('phone', ''),
                 email=data.get('email', ''),
                 address=data.get('address', '')

@@ -17,6 +17,7 @@
  */
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { maskReferenceId } from '../utils/formatId';
 
 const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
     const { user, logout } = useAuth();
@@ -101,7 +102,10 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
                         {/* User name - hidden on small mobile */}
                         <div className="hidden sm:block">
                             <p className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {user?.email}
+                                {user?.reference_id && <span className="ml-2 font-mono text-gray-400 dark:text-gray-500">#{maskReferenceId(user.reference_id)}</span>}
+                            </p>
                         </div>
                     </div>
 

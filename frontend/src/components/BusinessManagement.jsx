@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '../contexts/ToastContext';
+import { maskReferenceId } from '../utils/formatId';
 import api from '../utils/api';
 import BusinessForm from './BusinessForm';
 import InlineEditField from './InlineEditField';
@@ -179,7 +180,10 @@ const BusinessManagement = () => {
                                             </div>
                                         )}
                                         <div className="min-w-0">
-                                            <h3 className="font-semibold text-gray-900 truncate">{biz.name}</h3>
+                                            <h3 className="font-semibold text-gray-900 truncate">
+                                                {biz.name}
+                                                <span className="font-mono text-xs text-gray-400 ml-2 font-normal" title={`Ref: ${biz.reference_id}`}>#{maskReferenceId(biz.reference_id)}</span>
+                                            </h3>
                                             <div className="flex items-center gap-3 text-xs text-gray-500">
                                                 <span>{biz.phone}</span>
                                                 <span className="hidden sm:inline">•</span>

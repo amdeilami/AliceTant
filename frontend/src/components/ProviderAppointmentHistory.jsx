@@ -14,6 +14,7 @@
  * @param {string} [props.className] - Additional CSS classes
  */
 import { useState, useEffect } from 'react';
+import { maskReferenceId } from '../utils/formatId';
 import api from '../utils/api';
 
 const ProviderAppointmentHistory = ({ className = '' }) => {
@@ -143,6 +144,7 @@ const ProviderAppointmentHistory = ({ className = '' }) => {
                             <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                                 {appointment.business_name}
                             </h3>
+                            <span className="font-mono text-xs text-gray-400 ml-2" title={`Ref: ${appointment.reference_id}`}>#{maskReferenceId(appointment.reference_id)}</span>
                             <span className={`self-start sm:self-auto mt-1 sm:mt-0 px-2.5 py-0.5 text-xs font-medium rounded-full border ${getStatusStyle(appointment.status)}`}>
                                 {getStatusLabel(appointment.status)}
                             </span>

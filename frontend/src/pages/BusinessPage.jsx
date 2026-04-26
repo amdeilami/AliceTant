@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { maskReferenceId } from '../utils/formatId';
 import api from '../utils/api';
 
 const BusinessPage = () => {
@@ -182,6 +183,9 @@ const BusinessPage = () => {
                         )}
                         <div className="flex-1 min-w-0">
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{business.name}</h2>
+                            {business.reference_id && (
+                                <span className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-1" title={`Ref: ${business.reference_id}`}>ID: #{maskReferenceId(business.reference_id)}</span>
+                            )}
                             {business.summary && (
                                 <p className="mt-2 text-gray-600 dark:text-gray-400">{business.summary}</p>
                             )}
@@ -259,26 +263,39 @@ const BusinessPage = () => {
                                 <div key={dateStr}>
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{formatDate(dateStr)}</h4>
                                     <div className="flex flex-wrap gap-2">
-                                        {slots.map(slot => (
-                                            <button
-                                                key={slot.id}
-                                                onClick={() => {
-                                                    setSelectedSlot(slot);
-                                                    setAppointmentTime(slot.start_time?.slice(0, 5) || '');
-                                                    setEndTime(slot.end_time?.slice(0, 5) || '');
-                                                }}
-                                                className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
-                                                    selectedSlot?.id === slot.id
-                                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500'
-                                                        : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-500'
-                                                }`}
-                                            >
-                                                {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
-                                                {slot.capacity && (
-                                                    <span className="ml-1.5 text-xs text-gray-400">({slot.capacity} spots)</span>
-                                                )}
-                                            </button>
-                                        ))}
+                                        {slots.map(slot => {
+                                            const capacity = slot.capacity || 1;
+                                            const booked = slot.booking_count || 0;
+                                            const isFull = booked >= capacity;
+
+                                            return (
+                                                <button
+                                                    key={slot.id}
+                                                    disabled={isFull}
+                                                    onClick={() => {
+                                                        if (!isFull) {
+                                                            setSelectedSlot(slot);
+                                                            setAppointmentTime(slot.start_time?.slice(0, 5) || '');
+                                                            setEndTime(slot.end_time?.slice(0, 5) || '');
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
+                                                        isFull
+                                                            ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                                            : selectedSlot?.id === slot.id
+                                                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500'
+                                                                : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-500'
+                                                    }`}
+                                                >
+                                                    <span className={isFull ? 'line-through' : ''}>{formatTime(slot.start_time)} – {formatTime(slot.end_time)}</span>
+                                                    {isFull ? (
+                                                        <span className="ml-1.5 text-xs text-red-400 dark:text-red-500">Booked</span>
+                                                    ) : capacity > 1 ? (
+                                                        <span className="ml-1.5 text-xs text-gray-400">({capacity - booked}/{capacity})</span>
+                                                    ) : null}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}
