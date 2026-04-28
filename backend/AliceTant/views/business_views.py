@@ -64,7 +64,9 @@ class BusinessViewSet(viewsets.ModelViewSet):
         
         # For search action, return all businesses (public)
         if self.action == 'search':
-            return Business.objects.all()
+            if getattr(user, 'role', None) == 'ADMIN':
+                return Business.objects.all()
+            return Business.objects.filter(is_hidden=False)
         
         # For provider users, return only their businesses
         if hasattr(user, 'role') and user.role == 'PROVIDER':
@@ -73,9 +75,12 @@ class BusinessViewSet(viewsets.ModelViewSet):
                 return Business.objects.filter(provider=provider)
             except Provider.DoesNotExist:
                 return Business.objects.none()
+
+        if hasattr(user, 'role') and user.role == 'ADMIN':
+            return Business.objects.all()
         
         # For other users (customers), return all businesses for browsing
-        return Business.objects.all()
+        return Business.objects.filter(is_hidden=False)
     
     def create(self, request, *args, **kwargs):
         """

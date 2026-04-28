@@ -7,16 +7,27 @@ A personal secretary to manage your schedule online; a booking interface for you
 ```bash
 cd backend
 source .venv/bin/activate
-python manage.py runserver
+pip install -r requirements.txt  # if needed
+python manage.py migrate
+python manage.py runserver 5174
 ```
 Backend runs on: http://localhost:5174
 
 ### Frontend (React)
 ```bash
 cd frontend
-npm run dev
+npm install         # if needed
+npx vite --force
 ```
 Frontend runs on: http://localhost:5173
+
+### Create an Admin User
+```bash
+cd backend
+source .venv/bin/activate
+python manage.py create_admin --email admin@example.com --password YourPassword123!
+```
+Omit `--email` and `--password` to be prompted interactively.
 
 ## Project Structure
 

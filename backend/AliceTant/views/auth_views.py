@@ -15,9 +15,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 
 from ..serializers.auth_serializers import SignupSerializer, LoginSerializer, UserSerializer
+from ..repositories.audit_log_repository import AuditLogRepository
 from ..services.auth_service import AuthService
 from ..exceptions.user_exceptions import (
     DuplicateUserError,
@@ -80,6 +81,9 @@ class JWTAuthentication(BaseAuthentication):
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
                 raise AuthenticationFailed('User not found')
+
+            if user.is_suspended:
+                raise PermissionDenied('User account is suspended')
             
             return (user, token)
         
@@ -295,9 +299,24 @@ class LoginView(APIView):
                 logger.warning(
                     f"Login failed - invalid credentials (email: {email})"
                 )
+                AuditLogRepository.log_login_event(
+                    user=User.objects.filter(email=email).first(),
+                    success=False,
+                    request=request,
+                )
                 return Response(
                     {'error': 'Invalid email or password'},
                     status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            if user.is_suspended:
+                logger.warning(
+                    f"Login blocked - suspended user (email: {email})"
+                )
+                AuditLogRepository.log_login_event(user=user, success=False, request=request)
+                return Response(
+                    {'error': 'User account is suspended'},
+                    status=status.HTTP_403_FORBIDDEN
                 )
             
             # Generate JWT token for authenticated user
@@ -305,6 +324,7 @@ class LoginView(APIView):
             
             # Serialize user data for response (excludes password)
             user_serializer = UserSerializer(user, context={'request': request})
+            AuditLogRepository.log_login_event(user=user, success=True, request=request)
             
             # Return 200 OK with token and user data
             return Response(

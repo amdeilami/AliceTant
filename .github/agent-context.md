@@ -1,143 +1,221 @@
-# AliceTant — Agent Context
-
-## What Is This Project
-
-AliceTant is a two-sided booking/scheduling web application. **Providers** create businesses, define availability windows, set working hours, and manage appointments. **Customers** search for businesses and book appointments within available time slots.
-
 ---
+project: AliceTant
+type: agent-context
+description: >
+  Foundational context for AI agents working on the AliceTant codebase.
+  Two-sided booking/scheduling web app — providers create businesses and
+  manage availability; customers search and book appointments; admins
+  oversee users, businesses, appointments, analytics, settings, and backups.
+roles:
+  - PROVIDER: Creates businesses, defines availability, manages appointments
+  - CUSTOMER: Searches businesses, books appointments
+  - ADMIN: Platform oversight — user/business moderation, analytics, settings, backups (CLI-created only)
+---
+
+# AliceTant — Agent Context
 
 ## Tech Stack
 
-| Layer | Technology | Version | Notes |
-|---|---|---|---|
-| Backend framework | Django + DRF | 5.2.8 / 3.16.1 | |
-| Backend runtime | Python | 3.14 | venv at `backend/.venv` |
-| Frontend framework | React | 19.2 | Functional components + hooks |
-| Frontend bundler | Vite | 7.2 | |
-| CSS | Tailwind CSS | v4 | CSS-first config via `@tailwindcss/postcss` (no tailwind.config.js) |
-| HTTP client | Axios | 1.13 | |
-| Routing | react-router-dom | 7.9 | |
-| Database | SQLite | — | File at `backend/db.sqlite3` |
-| Auth | JWT (PyJWT) | 2.8 | Custom `JWTAuthentication` class in `auth_views.py`, tokens stored in `localStorage` as `authToken` |
-| Image handling | Pillow | 10.4 | Requires `LDFLAGS="-L/opt/homebrew/opt/jpeg/lib"` and `CPPFLAGS="-I/opt/homebrew/opt/jpeg/include"` to build on macOS ARM |
-| Testing (backend) | unittest + hypothesis | 6.92 | Property-based + unit tests |
-| Testing (frontend) | vitest + React Testing Library | — | |
-| Dark mode | Class-based | — | `html.dark` class, managed by `ThemeContext` |
+```yaml
+backend:
+  framework: Django 5.2.8 + DRF 3.16.1
+  runtime: Python 3.14
+  venv: backend/.venv
+  database: SQLite (backend/db.sqlite3)
+  auth: JWT via PyJWT 2.8 — custom JWTAuthentication in auth_views.py, token in localStorage as authToken
+  imaging: Pillow 10.4 (macOS ARM needs LDFLAGS/CPPFLAGS for jpeg)
+  testing: unittest + hypothesis 6.92
 
----
+frontend:
+  framework: React 19.2 (functional components + hooks)
+  bundler: Vite 7.2
+  css: Tailwind CSS v4 (CSS-first via @tailwindcss/postcss, no tailwind.config.js)
+  http: Axios 1.13
+  routing: react-router-dom 7.9
+  charts: Recharts 3.8 (admin analytics only)
+  dark_mode: class-based (html.dark, managed by ThemeContext)
+  testing: vitest + React Testing Library
+```
 
 ## Architecture
 
-### Backend: `View → Service → Repository → Model`
+### Backend — `View → Service → Repository → Model`
 
-- **Views** (`AliceTant/views/`): Handle HTTP, use serializers for validation, return responses. **Never call ORM directly** (exception: availability views handle slot creation directly due to bulk/recurring logic).
-- **Services** (`AliceTant/services/`): Business rules, authorization, orchestration.
-- **Repositories** (`AliceTant/repositories/`): Only layer that touches the ORM. Translates Django exceptions into domain exceptions.
-- **Models** (`AliceTant/models/`): Plain Django models.
-- **Serializers** (`AliceTant/serializers/`): Input validation and response shaping.
-- **Exceptions** (`AliceTant/exceptions/user_exceptions.py`): Domain exceptions following `*Error` naming.
+```yaml
+views:       # Handle HTTP + serializer validation. Never call ORM directly.
+services:    # Business rules, authorization, orchestration.
+repositories: # Only layer that touches ORM. Translates Django → domain exceptions.
+models:      # Plain Django models.
+serializers: # Input validation and response shaping.
+exceptions:  # Domain exceptions in user_exceptions.py, *Error naming.
+permissions: # IsAdmin permission class in permissions.py.
+signals:     # post_migrate seed for default SystemSettings.
+```
 
-### Frontend: `Pages → Components → Contexts → API`
+**Exception:** availability views handle slot creation directly (bulk/recurring logic).
 
-- **Pages** (`src/pages/`): `Home`, `Login`, `Signup`, `CustomerDashboard`, `ProviderDashboard`
-- **Components** (`src/components/`): Reusable UI — business forms, availability/appointment management, working hours/closures editors, dashboard layout, error handling, etc.
-- **Contexts** (`src/contexts/`): `AuthContext` (auth state), `ToastContext` (notifications), `ThemeContext` (dark mode)
-- **API client** (`src/utils/api.js`): Axios instance, base URL `http://localhost:5174/api`, auto-injects Bearer token
+### Frontend — `Pages → Components → Contexts → API`
 
----
+```yaml
+pages:
+  - Home, Login, Signup
+  - CustomerDashboard, ProviderDashboard, AdminDashboard
+  - BusinessPage
+
+components:
+  core: Layout, DashboardLayout, DashboardHeader, DashboardSidebar, ProtectedRoute, ErrorBoundary, AnnouncementBanner
+  features: BusinessForm, BusinessManagement, AvailabilityManagement, AppointmentManagement, WorkingHoursEditor, ClosuresEditor, ProfileSection
+  admin: AdminUserManagement, AdminBusinessManagement, AdminAppointmentManagement, AdminAnalyticsDashboard, AdminSettingsView, AdminBackupView, AdminExportView, AuditLogView, LoginHistoryModal, AdminActionModal, AdminPaginationControls
+
+contexts:
+  - AuthContext (auth state, mustChangePassword, isSuspended)
+  - ToastContext (notifications)
+  - ThemeContext (dark/light mode)
+
+hooks:
+  - useAnnouncement (polls /api/announcement/ on load + every 5 min)
+
+utils:
+  - api.js (Axios, base URL http://localhost:5174/api, auto-injects Bearer token)
+  - formatId.js (reference ID display with privacy masking)
+```
 
 ## How to Run
 
-### Backend
+```yaml
+backend:
+  start: |
+    cd backend
+    source .venv/bin/activate
+    pip install -r requirements.txt  # if needed
+    python manage.py migrate
+    python manage.py runserver 5174  # http://localhost:5174
+  test: |
+    cd backend && source .venv/bin/activate
+    python manage.py test AliceTant
+  create_admin: |
+    cd backend && source .venv/bin/activate
+    python manage.py create_admin
 
-```bash
-cd backend
-source .venv/bin/activate
-pip install -r requirements.txt    # if needed
-python manage.py migrate
-python manage.py runserver 5174    # http://localhost:5174
+frontend:
+  start: |
+    cd frontend
+    npm install         # if needed
+    npx vite --force    # http://localhost:5173
+  test: |
+    cd frontend && npm test
 ```
-
-### Frontend
-
-```bash
-cd frontend
-npm install                         # if needed
-npx vite --force                    # http://localhost:5173 (--force clears dep cache)
-```
-
-### Tests
-
-```bash
-# Backend
-cd backend && source .venv/bin/activate && python manage.py test AliceTant
-
-# Frontend
-cd frontend && npm test
-```
-
----
 
 ## API Endpoints
 
-All under `/api/`:
+All prefixed with `/api/`.
 
-| Area | Endpoints |
-|---|---|
-| Auth | `POST /auth/signup/`, `POST /auth/login/`, `GET /auth/me/` |
-| Businesses | `/businesses/` (CRUD via DRF ViewSet) |
-| Appointments | `/appointments/` (CRUD via DRF ViewSet, includes reschedule action) |
-| Availability | `GET/POST /availability/`, `GET/PUT/DELETE /availability/<id>/` |
-| Working Hours | `GET/POST /working-hours/`, closures nested |
-| Profile | `PUT /profile/email/`, `PUT /profile/password/`, `PUT /profile/avatar/` |
+```yaml
+public:
+  - POST /auth/signup/
+  - POST /auth/login/
+  - GET  /auth/me/
+  - GET  /announcement/
+  - GET  /health/
 
----
+customer_provider:
+  - /businesses/              # CRUD ViewSet
+  - /appointments/            # CRUD ViewSet (includes reschedule)
+  - /availability/            # GET, POST, PUT, DELETE
+  - /working-hours/           # GET, POST (closures nested)
+  - PUT /profile/email/
+  - PUT /profile/password/
+  - PUT /profile/avatar/
+
+admin:  # all require IsAdmin permission
+  - /admin/users/                          # list, suspend, reactivate, force-password-reset, login-history
+  - /admin/businesses/                     # list, hide, unhide
+  - /admin/appointments/                   # list, force-cancel
+  - /admin/analytics/users/                # user growth
+  - /admin/analytics/bookings/             # booking trends, heatmap
+  - /admin/analytics/cancellations/        # cancellation/modification rates
+  - /admin/analytics/businesses/popularity/ # top/bottom businesses
+  - /admin/settings/                       # list, update system settings
+  - /admin/audit-log/                      # paginated audit trail
+  - /admin/backups/                        # create, list, download, restore, delete
+  - /admin/export/users.csv
+  - /admin/export/businesses.csv
+  - /admin/export/appointments.csv
+```
 
 ## Data Models
 
-### User
-Extends `AbstractUser`. Fields: `role` (PROVIDER/CUSTOMER), `email` (unique), `created_at`, `updated_at`.
+```yaml
+User:
+  extends: AbstractUser
+  fields: [role (PROVIDER/CUSTOMER/ADMIN), email (unique), reference_id, is_suspended, suspended_at, suspension_reason, must_change_password, created_at, updated_at]
 
-### Provider
-One-to-one with User (PK = user). Fields: `business_name`, `bio` (4096), `phone_number`, `address`.
+Provider:
+  relation: OneToOne with User (PK = user)
+  fields: [business_name, bio (4096), phone_number, address]
 
-### Customer
-One-to-one with User (PK = user). Fields: `full_name`, `phone_number`, `preferences`.
+Customer:
+  relation: OneToOne with User (PK = user)
+  fields: [full_name, phone_number, preferences]
 
-### Business
-FK to Provider. Fields: `name`, `summary` (TextField, max 4096 chars), `logo` (ImageField), `phone`, `email`, `address`, timestamps. Ordering: `-created_at`.
+Business:
+  relation: FK to Provider
+  fields: [name, summary (4096), logo (ImageField), phone, email, address, reference_id, is_hidden, hidden_reason, timestamps]
+  ordering: [-created_at]
 
-### Availability
-FK to Business. **Date-specific** time windows for booking. Fields: `date` (DateField), `day_of_week` (auto-derived from date, 0=Sun..6=Sat), `start_time`, `end_time`, `capacity` (nullable, NULL=1 concurrent booking), `recurring_group` (UUID, groups weekly-recurring slots), timestamps. Unique: `(business, date, start_time)`. Ordering: `[date, start_time]`.
+Availability:
+  relation: FK to Business
+  fields: [date, day_of_week (auto from date, 0=Sun..6=Sat), start_time, end_time, capacity (null=1), recurring_group (UUID), timestamps]
+  unique: [business, date, start_time]
+  notes: Recurring creation expands into per-date records sharing a recurring_group UUID. Overlapping dates are skipped.
 
-**Recurring creation:** When creating, user can toggle "Repeat weekly" for 1–64 weeks. Backend expands into individual per-date records sharing a `recurring_group` UUID. Overlapping dates are skipped (partial success).
+Appointment:
+  relation: FK to Business, M2M with Customer via AppointmentCustomer
+  fields: [appointment_date, appointment_time, end_time, availability (FK SET_NULL), status (ACTIVE/CANCELLED/PENDING_MOD), reference_id, notes, timestamps]
+  notes: Booking validates against availability capacity.
 
-### Appointment
-FK to Business. M2M with Customer via `AppointmentCustomer`. Fields: `appointment_date`, `appointment_time` (start), `end_time` (nullable), `availability` (FK, SET_NULL), `status` (ACTIVE/CANCELLED), `notes`, timestamps. Booking validates against availability capacity (overlapping time range count vs capacity).
+PendingModification:
+  relation: FK to Appointment
+  fields: [proposed_by, proposed_by_user_id, new_date, new_time, new_end_time, new_notes, status, created_at, resolved_at]
 
-### WorkingHours
-FK to Business. Fields: `day_of_week`, `open_time`, `close_time`, `is_closed`. Unique: `(business, day_of_week)`.
+WorkingHours:
+  relation: FK to Business
+  fields: [day_of_week, open_time, close_time, is_closed]
+  unique: [business, day_of_week]
 
-### BusinessClosure
-FK to Business. Fields: `title`, `start_date`, `end_date`, `reason`. Auto-cancels active appointments within closure range on save.
+BusinessClosure:
+  relation: FK to Business
+  fields: [title, start_date, end_date, reason]
+  notes: Auto-cancels active appointments within closure range on save.
 
----
+AuditLog:
+  fields: [actor (FK User), action, target_type, target_id, details (JSON), ip_address, user_agent, created_at]
+
+LoginEvent:
+  fields: [user (FK), success, ip_address, user_agent, created_at]
+
+SystemSetting:
+  fields: [key (unique), value, value_type (string/int/bool/json), description, updated_at, updated_by (FK SET_NULL)]
+  defaults: max_appointment_duration_minutes (480), max_recurring_weeks (64), max_bookings_per_customer_per_day (10), announcement_banner_text, announcement_banner_visible, announcement_banner_severity
+```
 
 ## Coding Standards
 
-- Write minimal, correct code. No speculative abstractions.
-- Do **not** add docstrings/comments/type annotations to unchanged code.
-- Do **not** add error handling for impossible scenarios.
-- Follow the layered architecture. Views don't call ORM; repositories don't contain business logic.
-- Frontend: functional components + hooks, `AuthContext` for auth, `api` util for HTTP.
-- New exceptions go in `user_exceptions.py` with `*Error` naming.
-- Serializers handle validation and response shaping only.
-- Prefer flat code with early returns over nested if/else.
-- Add tests when adding features or fixing bugs.
+```yaml
+do:
+  - Write minimal, correct code — no speculative abstractions
+  - Follow layered architecture — views never call ORM; repositories never contain business logic
+  - Use flat code with early returns over nested if/else
+  - Use functional components + hooks on frontend
+  - Use AuthContext for auth, api.js util for HTTP
+  - Put new exceptions in user_exceptions.py with *Error naming
+  - Use makemigrations to create new migrations
 
-### Do Not
-
-- Rename/restructure files without being asked.
-- Add packages/dependencies without being asked.
-- Modify migration files by hand — use `makemigrations`.
-- Commit `db.sqlite3` or `.venv/`.
+do_not:
+  - Add docstrings/comments/type annotations to unchanged code
+  - Add error handling for impossible scenarios
+  - Rename or restructure files without being asked
+  - Add packages/dependencies without being asked
+  - Modify migration files by hand
+  - Commit db.sqlite3 or .venv/
+```

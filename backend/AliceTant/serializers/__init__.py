@@ -6,6 +6,7 @@ validation and response formatting.
 """
 
 from .auth_serializers import SignupSerializer, LoginSerializer, UserSerializer
+from .admin_serializers import AdminUserSerializer
 from .business_serializers import BusinessSerializer
 from .appointment_serializers import AppointmentSerializer
 
@@ -13,6 +14,7 @@ __all__ = [
     'SignupSerializer', 
     'LoginSerializer', 
     'UserSerializer',
+    'AdminUserSerializer',
     'BusinessSerializer',
     'AppointmentSerializer'
 ]

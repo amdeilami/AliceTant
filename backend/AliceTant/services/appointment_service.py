@@ -12,6 +12,7 @@ from datetime import date, time, datetime
 from ..models import Appointment, AppointmentStatus, Business, Customer, Provider, Availability
 from ..repositories.appointment_repository import AppointmentRepository
 from ..repositories.business_repository import BusinessRepository
+from ..repositories.system_setting_repository import SystemSettingRepository
 from ..exceptions.user_exceptions import (
     InvalidAppointmentDataError,
     TimeSlotConflictError,
@@ -28,6 +29,27 @@ class AppointmentService:
     All appointment operations go through this service to ensure proper validation
     and authorization before delegating to the repository layer.
     """
+
+    @staticmethod
+    def _validate_duration_limit(start_time: time, end_time: time = None):
+        if not end_time:
+            return
+
+        duration_minutes = int(
+            (
+                datetime.combine(date.min, end_time) -
+                datetime.combine(date.min, start_time)
+            ).total_seconds() // 60
+        )
+        max_duration_minutes = SystemSettingRepository.get(
+            'max_appointment_duration_minutes',
+            480,
+        )
+
+        if duration_minutes > max_duration_minutes:
+            raise InvalidAppointmentDataError(
+                f"Appointment duration cannot exceed {max_duration_minutes} minutes"
+            )
     
     @staticmethod
     def book_appointment(
@@ -124,14 +146,30 @@ class AppointmentService:
         if end_time and end_time <= appointment_time:
             raise InvalidAppointmentDataError("Appointment end time must be after start time")
 
+        AppointmentService._validate_duration_limit(appointment_time, end_time)
+
         # Get customers and validate they exist
         customers = []
+        max_bookings_per_customer_per_day = SystemSettingRepository.get(
+            'max_bookings_per_customer_per_day',
+            10,
+        )
         for customer_id in customer_ids:
             try:
                 customer = Customer.objects.get(user_id=customer_id)
                 customers.append(customer)
             except Customer.DoesNotExist:
                 raise InvalidAppointmentDataError(f"Customer with ID {customer_id} not found")
+
+            daily_booking_count = AppointmentRepository.count_customer_active_for_date(
+                customer_id=customer_id,
+                appointment_date=appointment_date,
+            )
+            if daily_booking_count >= max_bookings_per_customer_per_day:
+                raise InvalidAppointmentDataError(
+                    f"Customer {customer_id} already reached the daily booking limit "
+                    f"of {max_bookings_per_customer_per_day} active appointments"
+                )
 
         return AppointmentRepository.create_appointment(
             business=business,
@@ -442,6 +480,11 @@ class AppointmentService:
         if not appointment.customers.filter(user_id=customer.user_id).exists():
             raise UnauthorizedAccessError("You are not part of this appointment")
 
+        if new_end_time and new_end_time <= new_time:
+            raise InvalidAppointmentDataError("Appointment end time must be after start time")
+
+        AppointmentService._validate_duration_limit(new_time, new_end_time)
+
         return AppointmentRepository.create_pending_modification(
             appointment=appointment,
             proposed_by='CUSTOMER',
@@ -469,6 +512,11 @@ class AppointmentService:
 
         if not BusinessRepository.verify_ownership(appointment.business, provider):
             raise UnauthorizedAccessError("You don't own this appointment's business")
+
+        if new_end_time and new_end_time <= new_time:
+            raise InvalidAppointmentDataError("Appointment end time must be after start time")
+
+        AppointmentService._validate_duration_limit(new_time, new_end_time)
 
         return AppointmentRepository.create_pending_modification(
             appointment=appointment,
@@ -508,7 +556,7 @@ class AppointmentService:
                 provider = Provider.objects.get(user=user)
             except Provider.DoesNotExist:
                 raise UnauthorizedAccessError("Provider profile not found")
-            if appt.business.provider_id != provider.id:
+            if appt.business.provider_id != provider.pk:
                 raise UnauthorizedAccessError("You don't own this appointment's business")
         else:
             # mod proposed by provider → only a customer on this appointment may approve
@@ -518,7 +566,7 @@ class AppointmentService:
                 customer = Customer.objects.get(user=user)
             except Customer.DoesNotExist:
                 raise UnauthorizedAccessError("Customer profile not found")
-            if not appt.customers.filter(id=customer.id).exists():
+            if not appt.customers.filter(pk=customer.pk).exists():
                 raise UnauthorizedAccessError("You are not part of this appointment")
 
         if approve:

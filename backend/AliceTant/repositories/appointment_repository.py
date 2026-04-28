@@ -10,6 +10,7 @@ from typing import List, Optional
 from datetime import date, time, datetime
 from django.db import transaction, IntegrityError
 from django.db.models import Q, Prefetch
+from django.utils import timezone
 
 from ..models import (
     Appointment,
@@ -243,6 +244,58 @@ class AppointmentRepository:
                 'customers__user'
             ).order_by('appointment_date', 'appointment_time')
         )
+
+    @staticmethod
+    def list_all_for_admin(filters: Optional[dict] = None):
+        filters = filters or {}
+        queryset = Appointment.objects.select_related(
+            'business',
+            'business__provider__user',
+            'availability',
+        ).prefetch_related(
+            'customers',
+            'customers__user',
+            'pending_modifications',
+        ).order_by('-appointment_date', '-appointment_time')
+
+        status_value = filters.get('status')
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        business_id = filters.get('business_id')
+        if business_id:
+            queryset = queryset.filter(business_id=business_id)
+
+        customer_id = filters.get('customer_id')
+        if customer_id:
+            queryset = queryset.filter(customers__user_id=customer_id)
+
+        start_date = filters.get('start_date')
+        if start_date:
+            queryset = queryset.filter(appointment_date__gte=start_date)
+
+        end_date = filters.get('end_date')
+        if end_date:
+            queryset = queryset.filter(appointment_date__lte=end_date)
+
+        query = filters.get('query')
+        if query:
+            queryset = queryset.filter(
+                Q(business__name__icontains=query) |
+                Q(customers__full_name__icontains=query) |
+                Q(customers__user__email__icontains=query) |
+                Q(notes__icontains=query)
+            )
+
+        return queryset.distinct()
+
+    @staticmethod
+    def count_customer_active_for_date(customer_id: int, appointment_date: date) -> int:
+        return Appointment.objects.filter(
+            customers__user_id=customer_id,
+            appointment_date=appointment_date,
+            status=AppointmentStatus.ACTIVE,
+        ).count()
     
     @staticmethod
     def cancel_appointment(appointment_id: int) -> Appointment:
@@ -353,7 +406,7 @@ class AppointmentRepository:
             status=PendingModification.ModificationStatus.PENDING,
         ).update(
             status=PendingModification.ModificationStatus.REJECTED,
-            resolved_at=datetime.now(),
+            resolved_at=timezone.now(),
         )
 
         mod = PendingModification.objects.create(
@@ -393,7 +446,7 @@ class AppointmentRepository:
         appt.save()
 
         mod.status = PendingModification.ModificationStatus.APPROVED
-        mod.resolved_at = datetime.now()
+        mod.resolved_at = timezone.now()
         mod.save(update_fields=['status', 'resolved_at'])
         return appt
 
@@ -416,7 +469,7 @@ class AppointmentRepository:
         appt.save(update_fields=['status', 'updated_at'])
 
         mod.status = PendingModification.ModificationStatus.REJECTED
-        mod.resolved_at = datetime.now()
+        mod.resolved_at = timezone.now()
         mod.save(update_fields=['status', 'resolved_at'])
         return appt
 

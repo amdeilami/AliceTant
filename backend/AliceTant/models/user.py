@@ -21,6 +21,7 @@ class UserRole(models.TextChoices):
     """
     PROVIDER = 'PROVIDER', 'Provider'
     CUSTOMER = 'CUSTOMER', 'Customer'
+    ADMIN = 'ADMIN', 'Admin'
 
 
 class User(AbstractUser):
@@ -53,7 +54,7 @@ class User(AbstractUser):
         choices=UserRole.choices,
         null=False,
         blank=False,
-        help_text="User's role in the system (PROVIDER or CUSTOMER)"
+        help_text="User's role in the system (PROVIDER, CUSTOMER, or ADMIN)"
     )
     
     email = models.EmailField(
@@ -61,6 +62,27 @@ class User(AbstractUser):
         null=False,
         blank=False,
         help_text="User's email address (must be unique)"
+    )
+
+    is_suspended = models.BooleanField(
+        default=False,
+        help_text="Whether the user account is suspended"
+    )
+
+    suspended_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the user account was suspended"
+    )
+
+    suspension_reason = models.TextField(
+        blank=True,
+        help_text="Reason for suspending the user account"
+    )
+
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Whether the user must change their password on next login"
     )
     
     created_at = models.DateTimeField(
@@ -137,3 +159,12 @@ class User(AbstractUser):
             bool: True if user role is CUSTOMER, False otherwise
         """
         return self.role == UserRole.CUSTOMER
+
+    def is_admin(self):
+        """
+        Check if the user is an admin.
+
+        Returns:
+            bool: True if user role is ADMIN, False otherwise
+        """
+        return self.role == UserRole.ADMIN

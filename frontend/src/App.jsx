@@ -13,11 +13,13 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import ThemeToggle from './components/ThemeToggle';
+import AnnouncementBanner from './components/AnnouncementBanner';
 import Home from './pages/Home';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import CustomerDashboard from './pages/CustomerDashboard';
 import ProviderDashboard from './pages/ProviderDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import BusinessPage from './pages/BusinessPage';
 import './App.css';
 
@@ -28,6 +30,7 @@ function App() {
         <AuthProvider>
           <ToastProvider>
             <Router>
+              <AnnouncementBanner />
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Home />} />
@@ -60,6 +63,15 @@ function App() {
                   element={
                     <ProtectedRoute requiredRole="provider">
                       <ProviderDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/dashboard/admin"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AdminDashboard />
                     </ProtectedRoute>
                   }
                 />

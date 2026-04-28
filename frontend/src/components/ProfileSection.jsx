@@ -11,7 +11,7 @@
  * - Success/error message display
  * - Updates displayed user data after successful changes
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import api from '../utils/api';
@@ -20,9 +20,13 @@ import LoadingSpinner from './LoadingSpinner';
 const ProfileSection = () => {
     const { user, updateUser } = useAuth();
     const { showSuccess, showError } = useToast();
-    const [activeTab, setActiveTab] = useState('avatar');
+    const [activeTab, setActiveTab] = useState(user?.must_change_password ? 'password' : 'avatar');
     const [isLoading, setIsLoading] = useState(false);
-
+    useEffect(() => {
+        if (user?.must_change_password) {
+            setActiveTab('password');
+        }
+    }, [user?.must_change_password]);
     // Avatar state
     const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreview, setAvatarPreview] = useState(null);
@@ -195,6 +199,8 @@ const ProfileSection = () => {
 
             showSuccess(response.data.message || 'Password updated successfully');
 
+            updateUser({ ...user, must_change_password: false });
+
             // Reset form
             setPasswordData({
                 current_password: '',
@@ -215,6 +221,11 @@ const ProfileSection = () => {
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">My Profile</h2>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Manage your profile settings and preferences</p>
+                {user?.must_change_password && (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                        An administrator requires you to change your password before continuing normal account use.
+                    </div>
+                )}
             </div>
 
 

@@ -67,6 +67,14 @@ class Business(models.Model):
         null=True,
         help_text="Unique 8-digit reference ID for display"
     )
+    is_hidden = models.BooleanField(
+        default=False,
+        help_text="Whether the business is hidden from public discovery"
+    )
+    hidden_reason = models.TextField(
+        blank=True,
+        help_text="Reason the business was hidden"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Timestamp when the business was created"

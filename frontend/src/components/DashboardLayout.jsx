@@ -13,7 +13,7 @@
  * 
  * @param {Object} props - Component props
  * @param {React.ReactNode} props.children - Dashboard content to render
- * @param {string} props.role - User role ('customer' or 'provider')
+ * @param {string} props.role - User role ('customer', 'provider', or 'admin')
  * @param {string} [props.activeSection] - Currently active section (controlled)
  * @param {Function} [props.onSectionChange] - Callback when section changes
  */
@@ -83,7 +83,7 @@ const DashboardLayout = ({ children, role, activeSection: controlledActiveSectio
                     id="main-content"
                     className="flex-1 p-4 md:p-6 lg:p-8 md:ml-64 mt-16"
                     role="main"
-                    aria-label={`${role === 'customer' ? 'Customer' : 'Provider'} dashboard main content`}
+                    aria-label={`${role === 'customer' ? 'Customer' : role === 'provider' ? 'Provider' : 'Admin'} dashboard main content`}
                 >
                     <div className="max-w-7xl mx-auto">
                         {children}

@@ -9,7 +9,7 @@
  * - Navigation to signup page
  * - Backend API integration for authentication
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { login } from '../utils/api';
@@ -29,6 +29,14 @@ function Login() {
 
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const authNotice = sessionStorage.getItem('authNotice');
+        if (authNotice) {
+            showError(authNotice);
+            sessionStorage.removeItem('authNotice');
+        }
+    }, [showError]);
 
     /**
      * Handles input changes for form fields.
@@ -147,12 +155,17 @@ function Login() {
 
             // Show success toast
             showSuccess('Login successful! Redirecting...');
+            if (normalizedUser.must_change_password) {
+                showError('Password reset required. Open your profile and change your password now.');
+            }
 
             // Redirect to role-specific dashboard
             // Use setTimeout to ensure state updates complete before navigation
             const dashboardPath = normalizedUser.role === 'customer'
                 ? '/dashboard/customer'
-                : '/dashboard/provider';
+                : normalizedUser.role === 'provider'
+                    ? '/dashboard/provider'
+                    : '/dashboard/admin';
 
             setTimeout(() => {
                 navigate(dashboardPath, { replace: true });

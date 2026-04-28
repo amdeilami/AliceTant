@@ -7,7 +7,7 @@
  * 
  * Features:
  * - Checks authentication status before rendering protected content
- * - Redirects based on user role (customer/provider)
+ * - Redirects based on user role (customer/provider/admin)
  * - Shows loading state while checking authentication
  * - Handles role-based access control
  */
@@ -19,7 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
  * 
  * @param {Object} props - Component props
  * @param {React.ReactNode} props.children - Protected content to render
- * @param {string} [props.requiredRole] - Required user role ('customer' or 'provider')
+ * @param {string} [props.requiredRole] - Required user role ('customer', 'provider', or 'admin')
  * @returns {React.ReactNode} Protected content or redirect
  */
 const ProtectedRoute = ({ children, requiredRole = null }) => {
@@ -57,7 +57,9 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
         const userRoleLower = user?.role?.toLowerCase();
         const redirectPath = userRoleLower === 'customer'
             ? '/dashboard/customer'
-            : '/dashboard/provider';
+            : userRoleLower === 'provider'
+                ? '/dashboard/provider'
+                : '/dashboard/admin';
         return <Navigate to={redirectPath} replace />;
     }
 

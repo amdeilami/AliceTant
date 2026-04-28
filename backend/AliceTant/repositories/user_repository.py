@@ -11,6 +11,8 @@ from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email as django_validate_email
+from django.db.models import Q
+from django.utils import timezone
 
 from ..models import User, Provider, Customer
 from ..models.user import UserRole
@@ -60,9 +62,9 @@ class UserRepository:
             raise InvalidUserDataError(f"Invalid email format: {email}")
         
         # Validate role
-        if role not in [UserRole.PROVIDER, UserRole.CUSTOMER]:
+        if role not in [UserRole.PROVIDER, UserRole.CUSTOMER, UserRole.ADMIN]:
             raise InvalidUserDataError(
-                f"Invalid role: {role}. Must be PROVIDER or CUSTOMER"
+                f"Invalid role: {role}. Must be PROVIDER, CUSTOMER, or ADMIN"
             )
         
         # Validate password
@@ -259,9 +261,9 @@ class UserRepository:
         Raises:
             InvalidUserDataError: If role is not valid
         """
-        if role not in [UserRole.PROVIDER, UserRole.CUSTOMER]:
+        if role not in [UserRole.PROVIDER, UserRole.CUSTOMER, UserRole.ADMIN]:
             raise InvalidUserDataError(
-                f"Invalid role: {role}. Must be PROVIDER or CUSTOMER"
+                f"Invalid role: {role}. Must be PROVIDER, CUSTOMER, or ADMIN"
             )
         
         return list(User.objects.filter(role=role))
@@ -332,9 +334,9 @@ class UserRepository:
         # Validate role if being updated
         if 'role' in fields:
             role = fields['role']
-            if role not in [UserRole.PROVIDER, UserRole.CUSTOMER]:
+            if role not in [UserRole.PROVIDER, UserRole.CUSTOMER, UserRole.ADMIN]:
                 raise InvalidUserDataError(
-                    f"Invalid role: {role}. Must be PROVIDER or CUSTOMER"
+                    f"Invalid role: {role}. Must be PROVIDER, CUSTOMER, or ADMIN"
                 )
         
         try:
@@ -409,3 +411,55 @@ class UserRepository:
             return User.objects.filter(username=username).exists()
         else:
             return User.objects.filter(email=email).exists()
+
+    @staticmethod
+    def list_all_users(filters: Optional[dict] = None):
+        filters = filters or {}
+        queryset = User.objects.select_related('provider_profile', 'customer_profile').all().order_by('-created_at')
+
+        role = filters.get('role')
+        if role:
+            queryset = queryset.filter(role=role.upper())
+
+        if filters.get('is_suspended') is not None:
+            queryset = queryset.filter(is_suspended=filters['is_suspended'])
+
+        query = filters.get('query')
+        if query:
+            queryset = queryset.filter(
+                Q(username__icontains=query) |
+                Q(email__icontains=query) |
+                Q(customer_profile__full_name__icontains=query) |
+                Q(provider_profile__business_name__icontains=query)
+            )
+
+        return queryset.distinct()
+
+    @staticmethod
+    def search_users(query: str):
+        return UserRepository.list_all_users({'query': query})
+
+    @staticmethod
+    def suspend_user(user_id: int, reason: str = '') -> User:
+        user = UserRepository.get_user_by_id(user_id)
+        user.is_suspended = True
+        user.suspended_at = timezone.now()
+        user.suspension_reason = reason
+        user.save(update_fields=['is_suspended', 'suspended_at', 'suspension_reason', 'updated_at'])
+        return user
+
+    @staticmethod
+    def reactivate_user(user_id: int) -> User:
+        user = UserRepository.get_user_by_id(user_id)
+        user.is_suspended = False
+        user.suspended_at = None
+        user.suspension_reason = ''
+        user.save(update_fields=['is_suspended', 'suspended_at', 'suspension_reason', 'updated_at'])
+        return user
+
+    @staticmethod
+    def force_password_reset(user_id: int) -> User:
+        user = UserRepository.get_user_by_id(user_id)
+        user.must_change_password = True
+        user.save(update_fields=['must_change_password', 'updated_at'])
+        return user

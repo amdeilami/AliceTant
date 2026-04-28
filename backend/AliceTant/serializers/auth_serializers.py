@@ -109,6 +109,8 @@ class SignupSerializer(serializers.Serializer):
         Returns:
             str: Normalized role ('CUSTOMER' or 'PROVIDER')
         """
+        if value.lower() == 'admin':
+            raise serializers.ValidationError('Admin signup is not allowed')
         return value.upper()
     
     def validate_full_name(self, value):
@@ -186,8 +188,8 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'reference_id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'created_at']
-        read_only_fields = ['id', 'reference_id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'created_at']
+        fields = ['id', 'reference_id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'is_suspended', 'must_change_password', 'created_at']
+        read_only_fields = ['id', 'reference_id', 'username', 'email', 'role', 'full_name', 'avatar_url', 'is_suspended', 'must_change_password', 'created_at']
     
     def get_full_name(self, obj):
         """

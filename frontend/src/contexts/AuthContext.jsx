@@ -107,6 +107,8 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated,
         isLoading,
+        mustChangePassword: Boolean(user?.must_change_password),
+        isSuspended: Boolean(user?.is_suspended),
         login,
         logout,
         updateUser,

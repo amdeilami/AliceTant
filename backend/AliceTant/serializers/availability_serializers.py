@@ -7,6 +7,7 @@ availability slots for provider businesses.
 
 from rest_framework import serializers
 from AliceTant.models import Availability, Business
+from AliceTant.repositories.system_setting_repository import SystemSettingRepository
 
 
 class AvailabilitySerializer(serializers.ModelSerializer):
@@ -49,7 +50,7 @@ class AvailabilityCreateSerializer(serializers.Serializer):
 
     Accepts a business_id and a list of slot definitions. Each slot has a
     date, start_time, end_time, optional capacity, and optional recurring
-    config (is_recurring + num_weeks, max 64).
+    config (is_recurring + num_weeks, bounded by the configured system limit).
     """
     
     business_id = serializers.IntegerField(required=True)
@@ -77,6 +78,7 @@ class AvailabilityCreateSerializer(serializers.Serializer):
         from collections import defaultdict
 
         today = date.today()
+        max_recurring_weeks = SystemSettingRepository.get('max_recurring_weeks', 64)
 
         for slot in value:
             # Required fields
@@ -132,9 +134,9 @@ class AvailabilityCreateSerializer(serializers.Serializer):
                     num_weeks = int(num_weeks)
                 except (ValueError, TypeError):
                     raise serializers.ValidationError("num_weeks must be an integer.")
-                if num_weeks < 1 or num_weeks > 64:
+                if num_weeks < 1 or num_weeks > max_recurring_weeks:
                     raise serializers.ValidationError(
-                        "num_weeks must be between 1 and 64."
+                        f"num_weeks must be between 1 and {max_recurring_weeks}."
                     )
 
         # Expand recurring slots into individual dates for overlap checking

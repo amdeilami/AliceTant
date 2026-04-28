@@ -11,7 +11,7 @@
  * - Role-specific branding
  * 
  * @param {Object} props - Component props
- * @param {string} props.role - User role ('customer' or 'provider')
+ * @param {string} props.role - User role ('customer', 'provider', or 'admin')
  * @param {Function} props.onToggleSidebar - Callback to toggle sidebar
  * @param {boolean} props.isSidebarOpen - Current sidebar state
  */
@@ -22,6 +22,7 @@ import { maskReferenceId } from '../utils/formatId';
 const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const roleLabel = role === 'customer' ? 'Customer' : role === 'provider' ? 'Provider' : 'Admin';
 
     /**
      * Handle user logout
@@ -76,8 +77,8 @@ const DashboardHeader = ({ role, onToggleSidebar, isSidebarOpen }) => {
                         <h1 className="text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                             AliceTant
                         </h1>
-                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 hidden sm:inline" aria-label={`${role === 'customer' ? 'Customer' : 'Provider'} Dashboard`}>
-                            {role === 'customer' ? 'Customer' : 'Provider'} Dashboard
+                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400 hidden sm:inline" aria-label={`${roleLabel} Dashboard`}>
+                            {roleLabel} Dashboard
                         </span>
                     </div>
                 </div>

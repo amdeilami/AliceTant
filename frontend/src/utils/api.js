@@ -57,6 +57,14 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        if (error.response?.status === 403 && error.response?.data?.error === 'User account is suspended') {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            sessionStorage.setItem('authNotice', 'Your account is suspended. Please contact an administrator.');
+            window.location.href = '/login';
+            return Promise.reject(error);
+        }
+
         // Handle network errors with retry functionality
         if (!error.response && !originalRequest._retryCount) {
             originalRequest._retryCount = 0;

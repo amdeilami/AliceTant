@@ -125,6 +125,7 @@ class BusinessRepository:
         """
         return list(
             Business.objects
+            .filter(is_hidden=False)
             .select_related('provider__user')
             .order_by('-created_at')[offset:offset + limit]
         )
@@ -146,6 +147,7 @@ class BusinessRepository:
         if not query or not query.strip():
             return list(
                 Business.objects
+                .filter(is_hidden=False)
                 .select_related('provider__user')
                 .order_by('-created_at')
             )
@@ -160,8 +162,44 @@ class BusinessRepository:
                 Q(phone__icontains=query) |
                 Q(email__icontains=query)
             )
+            .filter(is_hidden=False)
             .order_by('-created_at')
         )
+
+    @staticmethod
+    def list_admin_businesses(query: str = '', is_hidden: Optional[bool] = None):
+        queryset = Business.objects.select_related('provider__user').order_by('-created_at')
+
+        if is_hidden is not None:
+            queryset = queryset.filter(is_hidden=is_hidden)
+
+        if query:
+            queryset = queryset.filter(
+                Q(name__icontains=query) |
+                Q(summary__icontains=query) |
+                Q(phone__icontains=query) |
+                Q(email__icontains=query) |
+                Q(provider__business_name__icontains=query) |
+                Q(provider__user__email__icontains=query)
+            )
+
+        return queryset
+
+    @staticmethod
+    def hide_business(business_id: int, reason: str = '') -> Business:
+        business = BusinessRepository.get_business_by_id(business_id)
+        business.is_hidden = True
+        business.hidden_reason = reason
+        business.save(update_fields=['is_hidden', 'hidden_reason', 'updated_at'])
+        return business
+
+    @staticmethod
+    def unhide_business(business_id: int) -> Business:
+        business = BusinessRepository.get_business_by_id(business_id)
+        business.is_hidden = False
+        business.hidden_reason = ''
+        business.save(update_fields=['is_hidden', 'hidden_reason', 'updated_at'])
+        return business
     
     @staticmethod
     def update_business(business: Business, **fields) -> Business:
